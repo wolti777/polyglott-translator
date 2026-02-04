@@ -1,0 +1,314 @@
+{% extends "base.html" %}
+
+{% block title %}Polyglot Translator{% endblock %}
+
+{% block content %}
+<div class="app-container">
+    <header class="app-header">
+        <div class="logo">
+            <span class="logo-icon">🌍</span>
+            <h1>Polyglot Translator</h1>
+        </div>
+        <div class="header-actions">
+            <a href="/glossary/export" class="btn btn-secondary">Export Glossary</a>
+            <a href="/logout" class="btn btn-outline">Logout</a>
+        </div>
+    </header>
+
+    <main class="translator-main">
+        <div class="input-section">
+            <div class="input-header">
+                <label for="input-text">Input</label>
+                <div class="language-selector" id="language-selector">
+                    <span id="selected-language-flag">🌐</span>
+                    <span id="selected-language-text">Auto-detect</span>
+                    <span class="dropdown-arrow">▼</span>
+                    <div class="language-dropdown" id="language-dropdown">
+                        <div class="language-option" data-lang="auto" data-flag="🌐">
+                            <span>🌐</span> Auto-detect
+                        </div>
+                        <div class="language-option" data-lang="spanish" data-flag="🇪🇸">
+                            <span>🇪🇸</span> Spanish
+                        </div>
+                        <div class="language-option" data-lang="german" data-flag="🇩🇪">
+                            <span>🇩🇪</span> German
+                        </div>
+                        <div class="language-option" data-lang="polish" data-flag="🇵🇱">
+                            <span>🇵🇱</span> Polish
+                        </div>
+                        <div class="language-option" data-lang="english" data-flag="🇬🇧">
+                            <span>🇬🇧</span> English
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <textarea id="input-text" placeholder="Enter text to translate..." rows="3"></textarea>
+            <button id="translate-btn" class="btn btn-primary btn-large">Translate</button>
+        </div>
+
+        <div id="translations-container" class="translations-grid-3" style="display: none;">
+            <!-- Translation boxes will be dynamically generated -->
+        </div>
+
+        <div id="selection-status" class="selection-status" style="display: none;">
+            <span id="selection-count">0/3</span> selected
+        </div>
+
+        <div id="recent-saves" class="recent-saves" style="display: none;">
+            <h3>Recent Saves</h3>
+            <div id="recent-saves-list" class="recent-saves-list"></div>
+        </div>
+    </main>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const inputText = document.getElementById('input-text');
+    const translateBtn = document.getElementById('translate-btn');
+    const languageSelector = document.getElementById('language-selector');
+    const languageDropdown = document.getElementById('language-dropdown');
+    const selectedLanguageFlag = document.getElementById('selected-language-flag');
+    const selectedLanguageText = document.getElementById('selected-language-text');
+    const translationsContainer = document.getElementById('translations-container');
+    const selectionStatus = document.getElementById('selection-status');
+    const selectionCount = document.getElementById('selection-count');
+
+    let currentData = null;
+    let recentSaves = [];
+    let selectedLanguage = localStorage.getItem('selectedLanguage') || 'auto';
+    let selections = {};
+
+    const languageNames = {
+        'auto': 'Auto-detect',
+        'spanish': 'Spanish',
+        'german': 'German',
+        'polish': 'Polish',
+        'english': 'English'
+    };
+
+    const languageFlags = {
+        'auto': '🌐',
+        'spanish': '🇪🇸',
+        'german': '🇩🇪',
+        'polish': '🇵🇱',
+        'english': '🇬🇧'
+    };
+
+    const sourceNames = {
+        'GoogT': 'Google Translate',
+        'MyMem': 'MyMemory',
+        'Yandex': 'Yandex',
+        'Reverso': 'Reverso'
+    };
+
+    function updateLanguageDisplay(lang) {
+        selectedLanguageFlag.textContent = languageFlags[lang];
+        selectedLanguageText.textContent = languageNames[lang];
+    }
+
+    updateLanguageDisplay(selectedLanguage);
+
+    // Toggle dropdown
+    languageSelector.addEventListener('click', (e) => {
+        e.stopPropagation();
+        languageDropdown.classList.toggle('show');
+    });
+
+    // Select language
+    languageDropdown.querySelectorAll('.language-option').forEach(option => {
+        option.addEventListener('click', (e) => {
+            e.stopPropagation();
+            selectedLanguage = option.dataset.lang;
+            localStorage.setItem('selectedLanguage', selectedLanguage);
+            updateLanguageDisplay(selectedLanguage);
+            languageDropdown.classList.remove('show');
+        });
+    });
+
+    document.addEventListener('click', () => {
+        languageDropdown.classList.remove('show');
+    });
+
+    function clearFields() {
+        inputText.value = '';
+        translationsContainer.style.display = 'none';
+        translationsContainer.innerHTML = '';
+        selectionStatus.style.display = 'none';
+        currentData = null;
+        selections = {};
+    }
+
+    function updateRecentSaves(entry) {
+        recentSaves.unshift(entry);
+        if (recentSaves.length > 4) {
+            recentSaves.pop();
+        }
+
+        const recentSavesContainer = document.getElementById('recent-saves');
+        const recentSavesList = document.getElementById('recent-saves-list');
+
+        recentSavesContainer.style.display = 'block';
+        recentSavesList.innerHTML = '';
+
+        recentSaves.forEach((save) => {
+            const saveItem = document.createElement('div');
+            saveItem.className = 'recent-save-item';
+
+            let html = '';
+            if (save.spanish) html += `<div class="save-row"><span class="flag-small">🇪🇸</span> ${save.spanish}</div>`;
+            if (save.german) html += `<div class="save-row"><span class="flag-small">🇩🇪</span> ${save.german}</div>`;
+            if (save.polish) html += `<div class="save-row"><span class="flag-small">🇵🇱</span> ${save.polish}</div>`;
+            if (save.english) html += `<div class="save-row"><span class="flag-small">🇬🇧</span> ${save.english}</div>`;
+
+            saveItem.innerHTML = html;
+            recentSavesList.appendChild(saveItem);
+        });
+    }
+
+    function checkAndSave() {
+        const targetLangs = Object.keys(currentData.translations);
+        const selectedCount = Object.keys(selections).length;
+
+        selectionCount.textContent = `${selectedCount}/${targetLangs.length}`;
+
+        if (selectedCount === targetLangs.length) {
+            // All selected - auto save
+            saveToGlossary();
+        }
+    }
+
+    async function saveToGlossary() {
+        const saveData = {
+            spanish: selections.spanish || currentData.source_text,
+            german: selections.german || currentData.source_text,
+            polish: selections.polish || currentData.source_text,
+            english: selections.english || currentData.source_text
+        };
+
+        // Set source language text
+        saveData[currentData.source_language] = currentData.source_text;
+
+        try {
+            const response = await fetch('/glossary/save', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(saveData),
+            });
+
+            if (response.ok) {
+                updateRecentSaves(saveData);
+                clearFields();
+            }
+        } catch (error) {
+            console.error('Error saving:', error);
+        }
+    }
+
+    function renderTranslations(data) {
+        currentData = data;
+        selections = {};
+        translationsContainer.innerHTML = '';
+        translationsContainer.style.display = 'grid';
+        selectionStatus.style.display = 'block';
+
+        const targetLangs = Object.keys(data.translations);
+        selectionCount.textContent = `0/${targetLangs.length}`;
+
+        for (const [lang, sources] of Object.entries(data.translations)) {
+            const card = document.createElement('div');
+            card.className = 'translation-card';
+            card.dataset.lang = lang;
+
+            const flag = languageFlags[lang];
+            const langName = languageNames[lang];
+
+            let optionsHtml = '';
+            for (const [sourceKey, translation] of Object.entries(sources)) {
+                const sourceName = sourceNames[sourceKey];
+                optionsHtml += `
+                    <div class="translation-option" data-source="${sourceKey}" data-translation="${translation}">
+                        <span class="source-badge">${sourceKey}</span>
+                        <span class="translation-text">${translation}</span>
+                    </div>
+                `;
+            }
+
+            card.innerHTML = `
+                <div class="card-header">
+                    <span class="flag">${flag}</span>
+                    <h3>${langName}</h3>
+                </div>
+                <div class="card-content">
+                    ${optionsHtml}
+                </div>
+            `;
+
+            // Add click handlers
+            card.querySelectorAll('.translation-option').forEach(option => {
+                option.addEventListener('click', () => {
+                    // Remove previous selection in this card
+                    card.querySelectorAll('.translation-option').forEach(opt => {
+                        opt.classList.remove('selected');
+                    });
+
+                    // Select this option
+                    option.classList.add('selected');
+                    selections[lang] = option.dataset.translation;
+
+                    checkAndSave();
+                });
+            });
+
+            translationsContainer.appendChild(card);
+        }
+    }
+
+    translateBtn.addEventListener('click', async () => {
+        const text = inputText.value.trim();
+        if (!text) {
+            alert('Please enter some text to translate');
+            return;
+        }
+
+        translateBtn.disabled = true;
+        translateBtn.textContent = 'Translating...';
+
+        try {
+            const response = await fetch('/translate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text: text, source_language: selectedLanguage }),
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+
+                // Update selected language
+                if (data.source_language && data.source_language !== 'auto') {
+                    selectedLanguage = data.source_language;
+                    localStorage.setItem('selectedLanguage', selectedLanguage);
+                    updateLanguageDisplay(selectedLanguage);
+                }
+
+                renderTranslations(data);
+            } else {
+                alert('Translation failed. Please try again.');
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            alert('An error occurred. Please try again.');
+        } finally {
+            translateBtn.disabled = false;
+            translateBtn.textContent = 'Translate';
+        }
+    });
+
+    inputText.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            translateBtn.click();
+        }
+    });
+</script>
+{% endblock %}
