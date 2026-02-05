@@ -1,15 +1,17 @@
 {% extends "base.html" %}
 
-{% block title %}Polyglot Translator{% endblock %}
+{% block title %}Glossarium{% endblock %}
 
 {% block content %}
 <div class="app-container">
     <header class="app-header">
         <div class="logo">
-            <span class="logo-icon">🌍</span>
-            <h1>Polyglot Translator</h1>
+            <span class="logo-icon">📚</span>
+            <h1>Glossarium</h1>
         </div>
         <div class="header-actions">
+            <button id="settings-btn" class="btn btn-outline settings-btn" title="Einstellungen">⚙️</button>
+            <a href="#" id="export-glossary-btn" class="btn btn-outline export-btn" title="Glossar exportieren">Export</a>
             <div class="glossary-wrapper">
                 <button class="btn btn-secondary glossary-btn">
                     <span id="selected-glossary-name">Hauptglossar</span>
@@ -29,41 +31,166 @@
 
     <main class="translator-main">
         <div class="input-section">
-            <div class="input-header">
-                <label for="input-text">Input</label>
-                <div class="language-selector" id="language-selector">
-                    <span id="selected-language-flag">🌐</span>
-                    <span id="selected-language-text">Auto-detect</span>
-                    <span class="dropdown-arrow">▼</span>
-                    <div class="language-dropdown" id="language-dropdown">
-                        <div class="language-option" data-lang="auto" data-flag="🌐">
-                            <span>🌐</span> Auto-detect
-                        </div>
-                        <div class="language-option" data-lang="spanish" data-flag="🇪🇸">
-                            <span>🇪🇸</span> Spanish
-                        </div>
-                        <div class="language-option" data-lang="german" data-flag="🇩🇪">
-                            <span>🇩🇪</span> German
-                        </div>
-                        <div class="language-option" data-lang="polish" data-flag="🇵🇱">
-                            <span>🇵🇱</span> Polish
-                        </div>
-                        <div class="language-option" data-lang="english" data-flag="🇬🇧">
-                            <span>🇬🇧</span> English
+            <div class="input-row">
+                <textarea id="input-text" placeholder="Text eingeben..." rows="3"></textarea>
+                <div class="input-actions">
+                    <button id="camera-btn" class="camera-btn" title="Kamera öffnen">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+                            <circle cx="12" cy="13" r="4"></circle>
+                        </svg>
+                    </button>
+                    <div class="language-selector" id="language-selector">
+                        <span id="selected-language-flag">🇩🇪</span>
+                        <span class="dropdown-arrow">▼</span>
+                        <div class="language-dropdown" id="language-dropdown">
+                            <!-- Populated dynamically based on settings -->
                         </div>
                     </div>
                 </div>
             </div>
-            <textarea id="input-text" placeholder="Enter text to translate..." rows="3"></textarea>
-            <button id="translate-btn" class="btn btn-primary btn-large">Translate</button>
+            <button id="translate-btn" class="btn btn-primary btn-large">Übersetzen von&nbsp;<span id="selected-language-text">German</span></button>
         </div>
 
-        <div id="ai-explanation-box" class="ai-explanation-box" style="display: none;">
-            <div class="ai-explanation-header">
-                <span class="ai-icon">✨</span>
-                <span>KI-Erklärung</span>
+        <!-- Camera Overlay -->
+        <div id="camera-overlay" class="camera-overlay" style="display: none;">
+            <div class="camera-header">
+                <span>Richte den Rahmen auf das Wort</span>
+                <button id="camera-close" class="camera-close-btn">✕</button>
             </div>
-            <div id="ai-explanation-content"></div>
+            <div class="camera-container">
+                <video id="camera-video" autoplay playsinline></video>
+                <canvas id="camera-canvas"></canvas>
+                <!-- Scan Frame -->
+                <div class="scan-frame-overlay">
+                    <div class="scan-frame-top"></div>
+                    <div class="scan-frame-middle">
+                        <div class="scan-frame-left"></div>
+                        <div class="scan-frame" id="scan-frame">
+                            <div class="scan-corner scan-corner-tl"></div>
+                            <div class="scan-corner scan-corner-tr"></div>
+                            <div class="scan-corner scan-corner-bl"></div>
+                            <div class="scan-corner scan-corner-br"></div>
+                        </div>
+                        <div class="scan-frame-right"></div>
+                    </div>
+                    <div class="scan-frame-bottom">
+                        <button id="camera-capture" class="btn btn-primary scan-btn">Scannen</button>
+                    </div>
+                </div>
+            </div>
+            <div class="camera-result">
+                <div class="scanned-words-label">Erkannte Wörter (tippe zum Auswählen):</div>
+                <div id="scanned-words" class="scanned-words"></div>
+                <div class="selected-preview">
+                    <span class="selected-label">Auswahl:</span>
+                    <span id="selected-preview-text">---</span>
+                </div>
+            </div>
+            <div class="camera-actions">
+                <div class="camera-lang-label">Übersetzen von:</div>
+                <div class="camera-lang-buttons">
+                    <!-- Populated dynamically based on settings -->
+                </div>
+            </div>
+            <div id="camera-status" class="camera-status">Wörter scannen, auswählen, dann Quellsprache wählen</div>
+        </div>
+
+        <!-- Settings Modal -->
+        <div id="settings-modal" class="settings-modal" style="display: none;">
+            <div class="settings-modal-content">
+                <div class="settings-header">
+                    <h2>⚙️ Einstellungen</h2>
+                    <button id="settings-close" class="settings-close-btn">✕</button>
+                </div>
+                <div class="settings-body">
+                    <div class="settings-section">
+                        <h3>SPRACHEN</h3>
+                        <p class="settings-hint">Wähle 4 Sprachen in gewünschter Reihenfolge</p>
+                        <div class="settings-languages">
+                            <div class="settings-language-row">
+                                <span class="lang-number">1.</span>
+                                <select id="settings-lang-1" class="settings-language-select"></select>
+                            </div>
+                            <div class="settings-language-row">
+                                <span class="lang-number">2.</span>
+                                <select id="settings-lang-2" class="settings-language-select"></select>
+                            </div>
+                            <div class="settings-language-row">
+                                <span class="lang-number">3.</span>
+                                <select id="settings-lang-3" class="settings-language-select"></select>
+                            </div>
+                            <div class="settings-language-row">
+                                <span class="lang-number">4.</span>
+                                <select id="settings-lang-4" class="settings-language-select"></select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="settings-divider"></div>
+                    <div class="settings-section">
+                        <h3>ÜBERSETZUNGSDIENSTE</h3>
+                        <div class="settings-checkboxes">
+                            <label class="settings-checkbox">
+                                <input type="checkbox" id="service-deepl" checked>
+                                <span class="checkmark"></span>
+                                DeepL
+                            </label>
+                            <label class="settings-checkbox">
+                                <input type="checkbox" id="service-pons" checked>
+                                <span class="checkmark"></span>
+                                PONS
+                            </label>
+                            <label class="settings-checkbox">
+                                <input type="checkbox" id="service-google" checked>
+                                <span class="checkmark"></span>
+                                Google
+                            </label>
+                            <label class="settings-checkbox">
+                                <input type="checkbox" id="service-lingva">
+                                <span class="checkmark"></span>
+                                Lingva
+                            </label>
+                        </div>
+                    </div>
+                    <div class="settings-divider"></div>
+                    <div class="settings-section">
+                        <h3>ERKLÄRUNGEN</h3>
+                        <div class="settings-checkboxes">
+                            <label class="settings-checkbox">
+                                <input type="checkbox" id="explain-pons" checked>
+                                <span class="checkmark"></span>
+                                PONS Wörterbuch
+                            </label>
+                            <label class="settings-checkbox">
+                                <input type="checkbox" id="explain-groq" checked>
+                                <span class="checkmark"></span>
+                                KI (Groq)
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                <div class="settings-footer">
+                    <button id="settings-cancel" class="btn btn-outline">Abbrechen</button>
+                    <button id="settings-save" class="btn btn-primary">Speichern</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="explanation-boxes">
+            <div id="ai-explanation-box" class="ai-explanation-box" style="display: none;">
+                <div class="ai-explanation-header">
+                    <span class="ai-icon">📖</span>
+                    <span>PONS</span>
+                </div>
+                <div id="ai-explanation-content"></div>
+            </div>
+            <div id="groq-explanation-box" class="groq-explanation-box" style="display: none;">
+                <div class="groq-explanation-header">
+                    <span class="groq-icon">🤖</span>
+                    <span>KI</span>
+                </div>
+                <div id="groq-explanation-content"></div>
+            </div>
         </div>
 
         <div id="translations-container" class="translations-grid-3" style="display: none;">
@@ -75,12 +202,15 @@
         </div>
 
         <div id="recent-saves" class="recent-saves" style="display: none;">
-            <h3>Recent Saves</h3>
+            <div class="recent-saves-header">
+                <h3>Recent Saves</h3>
+                <span class="recent-saves-glossary">Glossar: <span id="recent-glossary-name">-</span></span>
+            </div>
             <div id="recent-saves-list" class="recent-saves-list"></div>
+            <a href="#" id="export-glossary-btn-bottom" class="btn btn-outline export-btn-bottom">Export: <span id="export-glossary-name">-</span></a>
         </div>
 
         <footer class="app-footer">
-            <a href="#" id="export-glossary-btn" class="btn btn-secondary">Export</a>
             <a href="/logout" class="btn btn-outline">Logout</a>
         </footer>
     </main>
@@ -100,6 +230,8 @@
     const selectionCount = document.getElementById('selection-count');
     const aiExplanationBox = document.getElementById('ai-explanation-box');
     const aiExplanationContent = document.getElementById('ai-explanation-content');
+    const groqExplanationBox = document.getElementById('groq-explanation-box');
+    const groqExplanationContent = document.getElementById('groq-explanation-content');
 
     // Glossary elements
     const glossaryMenuBtn = document.getElementById('glossary-menu-btn');
@@ -109,29 +241,87 @@
     const newGlossaryInput = document.getElementById('new-glossary-name');
     const createGlossaryBtn = document.getElementById('create-glossary-btn');
     const exportGlossaryBtn = document.getElementById('export-glossary-btn');
+    const exportGlossaryBtnBottom = document.getElementById('export-glossary-btn-bottom');
+    const recentGlossaryName = document.getElementById('recent-glossary-name');
+    const exportGlossaryName = document.getElementById('export-glossary-name');
 
     let currentData = null;
     let recentSaves = [];
-    let selectedLanguage = localStorage.getItem('selectedLanguage') || 'auto';
+    let selectedLanguage = localStorage.getItem('selectedLanguage') || 'german';
+    // Reset if old 'auto' value is stored
+    if (selectedLanguage === 'auto') selectedLanguage = 'german';
     let selections = {};
     let glossaries = [];
     let selectedGlossaryId = localStorage.getItem('selectedGlossaryId') || null;
 
-    const languageNames = {
-        'auto': 'Auto-detect',
-        'spanish': 'Spanish',
-        'german': 'German',
-        'polish': 'Polish',
-        'english': 'English'
+    // All available languages
+    const allLanguages = {
+        'german': { name: 'Deutsch', flag: '🇩🇪', code: 'de' },
+        'english': { name: 'English', flag: '🇬🇧', code: 'en' },
+        'spanish': { name: 'Español', flag: '🇪🇸', code: 'es' },
+        'polish': { name: 'Polski', flag: '🇵🇱', code: 'pl' },
+        'french': { name: 'Français', flag: '🇫🇷', code: 'fr' },
+        'italian': { name: 'Italiano', flag: '🇮🇹', code: 'it' },
+        'portuguese': { name: 'Português', flag: '🇵🇹', code: 'pt' },
+        'dutch': { name: 'Nederlands', flag: '🇳🇱', code: 'nl' },
+        'russian': { name: 'Русский', flag: '🇷🇺', code: 'ru' },
     };
 
-    const languageFlags = {
-        'auto': '🌐',
-        'spanish': '🇪🇸',
-        'german': '🇩🇪',
-        'polish': '🇵🇱',
-        'english': '🇬🇧'
+    // Default settings
+    const defaultSettings = {
+        languages: ['german', 'spanish', 'polish', 'english'],
+        translationServices: {
+            'DeepL': true,
+            'PONS': true,
+            'Google': true,
+            'Lingva': false
+        },
+        explanationServices: {
+            'PONS Definition': true,
+            'Groq AI': true
+        }
     };
+
+    // Load settings from localStorage
+    function loadSettings() {
+        const saved = localStorage.getItem('glossariumSettings');
+        if (saved) {
+            try {
+                return JSON.parse(saved);
+            } catch (e) {
+                console.error('Failed to parse settings:', e);
+            }
+        }
+        return { ...defaultSettings };
+    }
+
+    // Save settings to localStorage
+    function saveSettingsToStorage(settings) {
+        localStorage.setItem('glossariumSettings', JSON.stringify(settings));
+    }
+
+    // Current settings
+    let appSettings = loadSettings();
+
+    // Dynamic language mappings based on settings
+    const languageNames = {};
+    const languageFlags = {};
+
+    function updateLanguageMappings() {
+        // Clear existing
+        Object.keys(languageNames).forEach(k => delete languageNames[k]);
+        Object.keys(languageFlags).forEach(k => delete languageFlags[k]);
+
+        // Add from settings
+        appSettings.languages.forEach(lang => {
+            if (allLanguages[lang]) {
+                languageNames[lang] = allLanguages[lang].name;
+                languageFlags[lang] = allLanguages[lang].flag;
+            }
+        });
+    }
+
+    updateLanguageMappings();
 
     const sourceNames = {
         'DeepL': 'DeepL',
@@ -140,9 +330,183 @@
         'Lingva': 'Lingva'
     };
 
+    // ==================== Settings Modal ====================
+
+    const settingsBtn = document.getElementById('settings-btn');
+    const settingsModal = document.getElementById('settings-modal');
+    const settingsClose = document.getElementById('settings-close');
+    const settingsCancel = document.getElementById('settings-cancel');
+    const settingsSave = document.getElementById('settings-save');
+
+    function populateLanguageSelects() {
+        const selects = [
+            document.getElementById('settings-lang-1'),
+            document.getElementById('settings-lang-2'),
+            document.getElementById('settings-lang-3'),
+            document.getElementById('settings-lang-4')
+        ];
+
+        selects.forEach((select, index) => {
+            select.innerHTML = '';
+            Object.entries(allLanguages).forEach(([key, lang]) => {
+                const option = document.createElement('option');
+                option.value = key;
+                option.textContent = `${lang.flag} ${lang.name}`;
+                select.appendChild(option);
+            });
+            // Set current value from settings
+            if (appSettings.languages[index]) {
+                select.value = appSettings.languages[index];
+            }
+        });
+    }
+
+    function openSettingsModal() {
+        populateLanguageSelects();
+
+        // Set checkbox states
+        document.getElementById('service-deepl').checked = appSettings.translationServices['DeepL'] !== false;
+        document.getElementById('service-pons').checked = appSettings.translationServices['PONS'] !== false;
+        document.getElementById('service-google').checked = appSettings.translationServices['Google'] !== false;
+        document.getElementById('service-lingva').checked = appSettings.translationServices['Lingva'] === true;
+        document.getElementById('explain-pons').checked = appSettings.explanationServices['PONS Definition'] !== false;
+        document.getElementById('explain-groq').checked = appSettings.explanationServices['Groq AI'] !== false;
+
+        settingsModal.style.display = 'flex';
+    }
+
+    function closeSettingsModal() {
+        settingsModal.style.display = 'none';
+    }
+
+    function saveSettings() {
+        // Get selected languages
+        const newLanguages = [
+            document.getElementById('settings-lang-1').value,
+            document.getElementById('settings-lang-2').value,
+            document.getElementById('settings-lang-3').value,
+            document.getElementById('settings-lang-4').value
+        ];
+
+        // Check for duplicates
+        const uniqueLangs = new Set(newLanguages);
+        if (uniqueLangs.size !== 4) {
+            alert('Bitte wähle 4 verschiedene Sprachen aus.');
+            return;
+        }
+
+        // Get service states
+        const newTranslationServices = {
+            'DeepL': document.getElementById('service-deepl').checked,
+            'PONS': document.getElementById('service-pons').checked,
+            'Google': document.getElementById('service-google').checked,
+            'Lingva': document.getElementById('service-lingva').checked
+        };
+
+        const newExplanationServices = {
+            'PONS Definition': document.getElementById('explain-pons').checked,
+            'Groq AI': document.getElementById('explain-groq').checked
+        };
+
+        // Update settings
+        appSettings = {
+            languages: newLanguages,
+            translationServices: newTranslationServices,
+            explanationServices: newExplanationServices
+        };
+
+        saveSettingsToStorage(appSettings);
+        updateLanguageMappings();
+        updateLanguageDropdowns();
+        updateCameraLangButtons();
+
+        closeSettingsModal();
+    }
+
+    settingsBtn.addEventListener('click', openSettingsModal);
+    settingsClose.addEventListener('click', closeSettingsModal);
+    settingsCancel.addEventListener('click', closeSettingsModal);
+    settingsSave.addEventListener('click', saveSettings);
+
+    // Close modal when clicking outside
+    settingsModal.addEventListener('click', (e) => {
+        if (e.target === settingsModal) {
+            closeSettingsModal();
+        }
+    });
+
+    // Update language dropdown options based on settings
+    function updateLanguageDropdowns() {
+        const dropdown = document.getElementById('language-dropdown');
+        dropdown.innerHTML = '';
+
+        appSettings.languages.forEach(lang => {
+            const langData = allLanguages[lang];
+            if (langData) {
+                const option = document.createElement('div');
+                option.className = 'language-option';
+                option.dataset.lang = lang;
+                option.dataset.flag = langData.flag;
+                option.innerHTML = `<span>${langData.flag}</span> ${langData.name}`;
+                option.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    selectedLanguage = lang;
+                    localStorage.setItem('selectedLanguage', selectedLanguage);
+                    updateLanguageDisplay(selectedLanguage);
+                    dropdown.classList.remove('show');
+                });
+                dropdown.appendChild(option);
+            }
+        });
+
+        // Update selected language if it's not in the new list
+        if (!appSettings.languages.includes(selectedLanguage)) {
+            selectedLanguage = appSettings.languages[0];
+            localStorage.setItem('selectedLanguage', selectedLanguage);
+        }
+        updateLanguageDisplay(selectedLanguage);
+    }
+
+    // Update camera language buttons based on settings
+    function updateCameraLangButtons() {
+        const container = document.querySelector('.camera-lang-buttons');
+        container.innerHTML = '';
+
+        appSettings.languages.forEach(lang => {
+            const langData = allLanguages[lang];
+            if (langData) {
+                const btn = document.createElement('button');
+                btn.className = 'lang-btn';
+                btn.dataset.lang = lang;
+                btn.disabled = true;
+                btn.textContent = langData.flag;
+                btn.addEventListener('click', () => {
+                    if (selectedWordsList.length > 0) {
+                        selectedLanguage = lang;
+                        localStorage.setItem('selectedLanguage', selectedLanguage);
+                        updateLanguageDisplay(selectedLanguage);
+                        inputText.value = selectedWordsList.join(' ');
+                        closeCamera();
+                        setTimeout(() => {
+                            translateBtn.click();
+                        }, 100);
+                    }
+                });
+                container.appendChild(btn);
+            }
+        });
+    }
+
+    // Initialize dropdowns on load
+    updateLanguageDropdowns();
+    updateCameraLangButtons();
+
     function updateLanguageDisplay(lang) {
-        selectedLanguageFlag.textContent = languageFlags[lang];
-        selectedLanguageText.textContent = languageNames[lang];
+        const langData = allLanguages[lang];
+        if (langData) {
+            selectedLanguageFlag.textContent = langData.flag;
+            selectedLanguageText.textContent = langData.name;
+        }
     }
 
     updateLanguageDisplay(selectedLanguage);
@@ -153,16 +517,7 @@
         languageDropdown.classList.toggle('show');
     });
 
-    // Select language
-    languageDropdown.querySelectorAll('.language-option').forEach(option => {
-        option.addEventListener('click', (e) => {
-            e.stopPropagation();
-            selectedLanguage = option.dataset.lang;
-            localStorage.setItem('selectedLanguage', selectedLanguage);
-            updateLanguageDisplay(selectedLanguage);
-            languageDropdown.classList.remove('show');
-        });
-    });
+    // Note: Language options are added dynamically in updateLanguageDropdowns()
 
     document.addEventListener('click', () => {
         languageDropdown.classList.remove('show');
@@ -182,7 +537,7 @@
                 if (selectedGlossaryId) {
                     const found = glossaries.find(g => g.id == selectedGlossaryId);
                     if (found) {
-                        selectedGlossaryName.textContent = found.name;
+                        updateGlossaryDisplayNames(found.name);
                     } else {
                         selectDefaultGlossary();
                     }
@@ -199,9 +554,15 @@
         const defaultGlossary = glossaries.find(g => g.is_default);
         if (defaultGlossary) {
             selectedGlossaryId = defaultGlossary.id;
-            selectedGlossaryName.textContent = defaultGlossary.name;
+            updateGlossaryDisplayNames(defaultGlossary.name);
             localStorage.setItem('selectedGlossaryId', selectedGlossaryId);
         }
+    }
+
+    function updateGlossaryDisplayNames(name) {
+        selectedGlossaryName.textContent = name;
+        recentGlossaryName.textContent = name;
+        exportGlossaryName.textContent = name;
     }
 
     function renderGlossaryList() {
@@ -217,10 +578,11 @@
             option.addEventListener('click', (e) => {
                 e.stopPropagation();
                 selectedGlossaryId = g.id;
-                selectedGlossaryName.textContent = g.name;
+                updateGlossaryDisplayNames(g.name);
                 localStorage.setItem('selectedGlossaryId', selectedGlossaryId);
                 glossaryDropdown.classList.remove('show');
                 renderGlossaryList();
+                loadRecentEntries(); // Reload entries for new glossary
             });
             glossaryList.appendChild(option);
         });
@@ -253,7 +615,7 @@
 
                 // Auto-select the new glossary
                 selectedGlossaryId = newGlossary.id;
-                selectedGlossaryName.textContent = newGlossary.name;
+                updateGlossaryDisplayNames(newGlossary.name);
                 localStorage.setItem('selectedGlossaryId', selectedGlossaryId);
 
                 renderGlossaryList();
@@ -279,14 +641,18 @@
     });
 
     // Export glossary
-    exportGlossaryBtn.addEventListener('click', (e) => {
+    function exportGlossary(e) {
         e.preventDefault();
         const url = selectedGlossaryId ? `/glossary/export?glossary_id=${selectedGlossaryId}` : '/glossary/export';
         window.location.href = url;
-    });
+    }
+    exportGlossaryBtn.addEventListener('click', exportGlossary);
+    exportGlossaryBtnBottom.addEventListener('click', exportGlossary);
 
-    // Load glossaries on page load
-    loadGlossaries();
+    // Load glossaries and recent entries on page load
+    loadGlossaries().then(() => {
+        loadRecentEntries();
+    });
 
     function clearFields() {
         inputText.value = '';
@@ -299,14 +665,30 @@
         selections = {};
     }
 
-    function updateRecentSaves(entry) {
-        recentSaves.unshift(entry);
-        if (recentSaves.length > 4) {
-            recentSaves.pop();
+    // Load recent entries from database
+    async function loadRecentEntries() {
+        try {
+            const url = selectedGlossaryId
+                ? `/glossary/recent?glossary_id=${selectedGlossaryId}`
+                : '/glossary/recent';
+            const response = await fetch(url);
+            if (response.ok) {
+                recentSaves = await response.json();
+                renderRecentSaves();
+            }
+        } catch (error) {
+            console.error('Error loading recent entries:', error);
         }
+    }
 
+    function renderRecentSaves() {
         const recentSavesContainer = document.getElementById('recent-saves');
         const recentSavesList = document.getElementById('recent-saves-list');
+
+        if (recentSaves.length === 0) {
+            recentSavesContainer.style.display = 'none';
+            return;
+        }
 
         recentSavesContainer.style.display = 'block';
         recentSavesList.innerHTML = '';
@@ -316,14 +698,34 @@
             saveItem.className = 'recent-save-item';
 
             let html = '';
-            if (save.spanish) html += `<div class="save-row"><span class="flag-small">🇪🇸</span> ${save.spanish}</div>`;
-            if (save.german) html += `<div class="save-row"><span class="flag-small">🇩🇪</span> ${save.german}</div>`;
-            if (save.polish) html += `<div class="save-row"><span class="flag-small">🇵🇱</span> ${save.polish}</div>`;
-            if (save.english) html += `<div class="save-row"><span class="flag-small">🇬🇧</span> ${save.english}</div>`;
+            // Display based on current language settings - show all 4 columns from settings
+            appSettings.languages.forEach(lang => {
+                const langData = allLanguages[lang];
+                const value = save[lang] || save.entries?.[lang] || '';
+                if (value && langData) {
+                    html += `<div class="save-row"><span class="flag-small">${langData.flag}</span> ${value}</div>`;
+                }
+            });
+
+            // Fallback: if no settings-based data, show any available data
+            if (!html) {
+                if (save.spanish) html += `<div class="save-row"><span class="flag-small">🇪🇸</span> ${save.spanish}</div>`;
+                if (save.german) html += `<div class="save-row"><span class="flag-small">🇩🇪</span> ${save.german}</div>`;
+                if (save.polish) html += `<div class="save-row"><span class="flag-small">🇵🇱</span> ${save.polish}</div>`;
+                if (save.english) html += `<div class="save-row"><span class="flag-small">🇬🇧</span> ${save.english}</div>`;
+            }
 
             saveItem.innerHTML = html;
             recentSavesList.appendChild(saveItem);
         });
+    }
+
+    function updateRecentSaves(entry) {
+        recentSaves.unshift(entry);
+        if (recentSaves.length > 4) {
+            recentSaves.pop();
+        }
+        renderRecentSaves();
     }
 
     function checkAndSave() {
@@ -339,16 +741,29 @@
     }
 
     async function saveToGlossary() {
+        // Build slot-based save data using current language settings
+        const slots = appSettings.languages.map((lang, i) => {
+            if (lang === currentData.source_language) {
+                return currentData.source_text;
+            }
+            return selections[lang] || currentData.source_text;
+        });
+
         const saveData = {
-            spanish: selections.spanish || currentData.source_text,
-            german: selections.german || currentData.source_text,
-            polish: selections.polish || currentData.source_text,
-            english: selections.english || currentData.source_text,
+            slot1: slots[0],
+            slot2: slots[1],
+            slot3: slots[2],
+            slot4: slots[3],
+            language_config: appSettings.languages,
             glossary_id: selectedGlossaryId ? parseInt(selectedGlossaryId) : null
         };
 
-        // Set source language text
-        saveData[currentData.source_language] = currentData.source_text;
+        // Also include direct column names for backward compatibility
+        appSettings.languages.forEach((lang, i) => {
+            if (['spanish', 'german', 'polish', 'english'].includes(lang)) {
+                saveData[lang] = slots[i];
+            }
+        });
 
         try {
             const response = await fetch('/glossary/save', {
@@ -358,7 +773,12 @@
             });
 
             if (response.ok) {
-                updateRecentSaves(saveData);
+                // Create display data for recent saves
+                const displayData = {};
+                appSettings.languages.forEach((lang, i) => {
+                    displayData[lang] = slots[i];
+                });
+                updateRecentSaves(displayData);
                 clearFields();
                 // Reload glossaries to update count
                 loadGlossaries();
@@ -383,23 +803,31 @@
             card.className = 'translation-card';
             card.dataset.lang = lang;
 
-            const flag = languageFlags[lang];
-            const langName = languageNames[lang];
+            const langData = allLanguages[lang] || { flag: '🌐', name: lang };
+            const flag = langData.flag;
+            const langName = langData.name;
 
             let optionsHtml = '';
 
-            // Collect unique translations
-            const seenTranslations = new Set();
-
             for (const [sourceKey, translation] of Object.entries(sources)) {
                 if (translation === '[Error]' || translation === '[No API Key]') continue;
+
+                // Show limit reached message
+                if (translation === '[Limit]') {
+                    optionsHtml += `
+                        <div class="translation-option limit-option" data-source="${sourceKey}">
+                            <span class="source-badge limit-badge">${sourceKey}</span>
+                            <span class="translation-text limit-text">Limit erreicht</span>
+                        </div>
+                    `;
+                    continue;
+                }
 
                 // For PONS, split by comma to show alternatives separately
                 if (sourceKey === 'PONS' && translation.includes(',')) {
                     const alternatives = translation.split(',').map(t => t.trim());
                     alternatives.forEach((alt, idx) => {
-                        if (alt && !seenTranslations.has(alt.toLowerCase())) {
-                            seenTranslations.add(alt.toLowerCase());
+                        if (alt) {
                             optionsHtml += `
                                 <div class="translation-option pons-option" data-source="PONS" data-translation="${alt}">
                                     <span class="source-badge pons-badge">PONS</span>
@@ -409,16 +837,12 @@
                         }
                     });
                 } else {
-                    // For other services, show as single option (skip if already seen)
-                    if (!seenTranslations.has(translation.toLowerCase())) {
-                        seenTranslations.add(translation.toLowerCase());
-                        optionsHtml += `
-                            <div class="translation-option" data-source="${sourceKey}" data-translation="${translation}">
-                                <span class="source-badge">${sourceKey}</span>
-                                <span class="translation-text">${translation}</span>
-                            </div>
-                        `;
-                    }
+                    optionsHtml += `
+                        <div class="translation-option" data-source="${sourceKey}" data-translation="${translation}">
+                            <span class="source-badge">${sourceKey}</span>
+                            <span class="translation-text">${translation}</span>
+                        </div>
+                    `;
                 }
             }
 
@@ -504,10 +928,19 @@
         translateBtn.textContent = 'Translating...';
 
         try {
+            // Build target languages (all except source)
+            const targetLangs = appSettings.languages.filter(l => l !== selectedLanguage);
+
             const response = await fetch('/translate', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ text: text, source_language: selectedLanguage }),
+                body: JSON.stringify({
+                    text: text,
+                    source_language: selectedLanguage,
+                    target_languages: targetLangs,
+                    enabled_services: appSettings.translationServices,
+                    explanation_services: appSettings.explanationServices
+                }),
             });
 
             if (response.ok) {
@@ -522,19 +955,20 @@
 
                 renderTranslations(data);
 
-                // Show AI explanation if available
+                // Show PONS definition if available
                 if (data.ai_explanation && data.ai_explanation.trim()) {
-                    const isLimit = data.ai_explanation.startsWith('[LIMIT]');
-                    if (isLimit) {
-                        aiExplanationContent.textContent = data.ai_explanation.replace('[LIMIT] ', '');
-                        aiExplanationBox.classList.add('limit-reached');
-                    } else {
-                        aiExplanationContent.textContent = data.ai_explanation;
-                        aiExplanationBox.classList.remove('limit-reached');
-                    }
+                    aiExplanationContent.textContent = data.ai_explanation;
                     aiExplanationBox.style.display = 'block';
                 } else {
                     aiExplanationBox.style.display = 'none';
+                }
+
+                // Show Groq explanation if available
+                if (data.groq_explanation && data.groq_explanation.trim()) {
+                    groqExplanationContent.textContent = data.groq_explanation;
+                    groqExplanationBox.style.display = 'block';
+                } else {
+                    groqExplanationBox.style.display = 'none';
                 }
             } else {
                 alert('Translation failed. Please try again.');
@@ -554,5 +988,271 @@
             translateBtn.click();
         }
     });
+
+    // ==================== Camera OCR ====================
+
+    const cameraBtn = document.getElementById('camera-btn');
+    const cameraOverlay = document.getElementById('camera-overlay');
+    const cameraClose = document.getElementById('camera-close');
+    const cameraVideo = document.getElementById('camera-video');
+    const cameraCanvas = document.getElementById('camera-canvas');
+    const cameraCapture = document.getElementById('camera-capture');
+    const cameraStatus = document.getElementById('camera-status');
+    const scannedWordsContainer = document.getElementById('scanned-words');
+    const selectedPreviewText = document.getElementById('selected-preview-text');
+    const scanFrame = document.getElementById('scan-frame');
+    const cameraContainer = document.querySelector('.camera-container');
+
+    let cameraStream = null;
+    let scannedWordsList = [];
+    let selectedWordsList = [];
+    let tesseractWorker = null;
+    let currentZoom = 1;
+    let videoTrack = null;
+
+    // Initialize Tesseract worker
+    async function initTesseract() {
+        if (!tesseractWorker) {
+            cameraStatus.textContent = 'Lade Texterkennung...';
+            tesseractWorker = await Tesseract.createWorker('deu+eng+spa+pol+fra+ita+por+nld+rus');
+            cameraStatus.textContent = '';
+        }
+        return tesseractWorker;
+    }
+
+    // Update selected words preview
+    function updateSelectedPreview() {
+        const cameraLangButtons = document.querySelectorAll('.camera-lang-buttons .lang-btn');
+        if (selectedWordsList.length === 0) {
+            selectedPreviewText.textContent = '---';
+            cameraLangButtons.forEach(btn => btn.disabled = true);
+        } else {
+            selectedPreviewText.textContent = selectedWordsList.join(' ');
+            cameraLangButtons.forEach(btn => btn.disabled = false);
+        }
+    }
+
+    // Note: Camera language button click handlers are added dynamically in updateCameraLangButtons()
+
+    // Render scanned words as clickable chips
+    function renderScannedWords() {
+        scannedWordsContainer.innerHTML = '';
+        scannedWordsList.forEach((word, index) => {
+            const chip = document.createElement('span');
+            chip.className = 'word-chip';
+            chip.textContent = word;
+            chip.dataset.index = index;
+
+            // Check if already selected
+            if (selectedWordsList.includes(word)) {
+                chip.classList.add('selected');
+            }
+
+            chip.addEventListener('click', () => {
+                if (chip.classList.contains('selected')) {
+                    chip.classList.remove('selected');
+                    selectedWordsList = selectedWordsList.filter(w => w !== word);
+                } else {
+                    chip.classList.add('selected');
+                    selectedWordsList.push(word);
+                }
+                updateSelectedPreview();
+            });
+
+            scannedWordsContainer.appendChild(chip);
+        });
+    }
+
+    // Pinch-zoom handling for camera
+    let initialDistance = 0;
+    let lastZoom = 1;
+
+    function getDistance(touches) {
+        const dx = touches[0].clientX - touches[1].clientX;
+        const dy = touches[0].clientY - touches[1].clientY;
+        return Math.sqrt(dx * dx + dy * dy);
+    }
+
+    function handleTouchStart(e) {
+        if (e.touches.length === 2) {
+            e.preventDefault();
+            initialDistance = getDistance(e.touches);
+            lastZoom = currentZoom;
+        }
+    }
+
+    function handleTouchMove(e) {
+        if (e.touches.length === 2) {
+            e.preventDefault();
+            const currentDistance = getDistance(e.touches);
+            const scale = currentDistance / initialDistance;
+            currentZoom = Math.min(Math.max(lastZoom * scale, 1), 5); // Limit zoom 1x-5x
+
+            // Try hardware zoom first, fallback to CSS transform
+            if (videoTrack) {
+                const capabilities = videoTrack.getCapabilities();
+                if (capabilities.zoom) {
+                    const minZoom = capabilities.zoom.min;
+                    const maxZoom = capabilities.zoom.max;
+                    const hwZoom = minZoom + (currentZoom - 1) / 4 * (maxZoom - minZoom);
+                    videoTrack.applyConstraints({ advanced: [{ zoom: hwZoom }] }).catch(() => {});
+                }
+            }
+            // CSS fallback/enhancement
+            cameraVideo.style.transform = `scale(${currentZoom})`;
+        }
+    }
+
+    function handleTouchEnd(e) {
+        if (e.touches.length < 2) {
+            initialDistance = 0;
+        }
+    }
+
+    // Open camera
+    cameraBtn.addEventListener('click', async () => {
+        try {
+            cameraOverlay.style.display = 'flex';
+            cameraStatus.textContent = 'Kamera wird gestartet...';
+            scannedWordsContainer.innerHTML = '<span class="no-words">---</span>';
+            scannedWordsList = [];
+            selectedWordsList = [];
+            currentZoom = 1;
+            cameraVideo.style.transform = 'scale(1)';
+            updateSelectedPreview();
+
+            // Request camera with preference for back camera on mobile
+            const constraints = {
+                video: {
+                    facingMode: { ideal: 'environment' },
+                    width: { ideal: 1280 },
+                    height: { ideal: 720 }
+                }
+            };
+
+            cameraStream = await navigator.mediaDevices.getUserMedia(constraints);
+            cameraVideo.srcObject = cameraStream;
+
+            // Get video track for hardware zoom
+            videoTrack = cameraStream.getVideoTracks()[0];
+
+            // Add pinch-zoom listeners
+            cameraContainer.addEventListener('touchstart', handleTouchStart, { passive: false });
+            cameraContainer.addEventListener('touchmove', handleTouchMove, { passive: false });
+            cameraContainer.addEventListener('touchend', handleTouchEnd);
+
+            cameraStatus.textContent = 'Richte den Rahmen auf das Wort. Zoom mit 2 Fingern.';
+
+            // Pre-load Tesseract
+            initTesseract();
+        } catch (error) {
+            console.error('Camera error:', error);
+            cameraStatus.textContent = 'Kamera-Zugriff verweigert. Bitte erlaube den Zugriff in den Einstellungen.';
+        }
+    });
+
+    // Close camera
+    function closeCamera() {
+        // Remove zoom listeners
+        cameraContainer.removeEventListener('touchstart', handleTouchStart);
+        cameraContainer.removeEventListener('touchmove', handleTouchMove);
+        cameraContainer.removeEventListener('touchend', handleTouchEnd);
+
+        if (cameraStream) {
+            cameraStream.getTracks().forEach(track => track.stop());
+            cameraStream = null;
+        }
+        videoTrack = null;
+        cameraVideo.srcObject = null;
+        cameraVideo.style.transform = 'scale(1)';
+        currentZoom = 1;
+        cameraOverlay.style.display = 'none';
+        scannedWordsList = [];
+        selectedWordsList = [];
+    }
+
+    cameraClose.addEventListener('click', closeCamera);
+
+    // Capture and OCR - only scan the frame area
+    cameraCapture.addEventListener('click', async () => {
+        if (!cameraStream) return;
+
+        cameraStatus.textContent = 'Erkenne Text...';
+        cameraCapture.disabled = true;
+
+        try {
+            const video = cameraVideo;
+            const canvas = cameraCanvas;
+
+            // Get frame position relative to video
+            const videoRect = video.getBoundingClientRect();
+            const frameRect = scanFrame.getBoundingClientRect();
+
+            // Calculate frame position in video coordinates
+            const scaleX = video.videoWidth / videoRect.width;
+            const scaleY = video.videoHeight / videoRect.height;
+
+            const frameX = (frameRect.left - videoRect.left) * scaleX;
+            const frameY = (frameRect.top - videoRect.top) * scaleY;
+            const frameW = frameRect.width * scaleX;
+            const frameH = frameRect.height * scaleY;
+
+            // Create canvas with only the frame area
+            canvas.width = frameW;
+            canvas.height = frameH;
+            const ctx = canvas.getContext('2d');
+
+            // Draw only the frame portion
+            ctx.drawImage(video, frameX, frameY, frameW, frameH, 0, 0, frameW, frameH);
+
+            // Get image data
+            const imageData = canvas.toDataURL('image/png');
+
+            // Run OCR on cropped image
+            const worker = await initTesseract();
+            const result = await worker.recognize(imageData);
+
+            // Margin in pixels - words touching edge are excluded
+            const margin = 5;
+            const canvasW = canvas.width;
+            const canvasH = canvas.height;
+
+            // Get all recognized words that are FULLY within the frame
+            const words = result.data.words
+                .filter(w => {
+                    // Check confidence and length
+                    if (w.confidence < 50 || w.text.trim().length < 2) return false;
+                    // Check if word is fully inside (not cut off at edges)
+                    const bbox = w.bbox;
+                    if (bbox.x0 < margin || bbox.y0 < margin) return false;
+                    if (bbox.x1 > canvasW - margin || bbox.y1 > canvasH - margin) return false;
+                    return true;
+                })
+                .map(w => w.text.replace(/[^\w\säöüÄÖÜßáéíóúñ-]/gi, '').trim())
+                .filter(w => w.length > 0);
+
+            if (words.length > 0) {
+                // Add new words to list (avoid duplicates)
+                words.forEach(word => {
+                    if (!scannedWordsList.includes(word)) {
+                        scannedWordsList.push(word);
+                    }
+                });
+                renderScannedWords();
+                cameraStatus.textContent = 'Tippe auf Wörter zum Auswählen. Erneut scannen für mehr.';
+            } else {
+                if (scannedWordsList.length === 0) {
+                    scannedWordsContainer.innerHTML = '<span class="no-words">(kein Text erkannt)</span>';
+                }
+                cameraStatus.textContent = 'Kein Text erkannt. Rahmen näher an das Wort richten.';
+            }
+        } catch (error) {
+            console.error('OCR error:', error);
+            cameraStatus.textContent = 'Fehler bei der Texterkennung. Versuche es erneut.';
+        } finally {
+            cameraCapture.disabled = false;
+        }
+    });
+
 </script>
 {% endblock %}

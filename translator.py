@@ -7,16 +7,22 @@ from dotenv import load_dotenv
 load_dotenv()
 
 LANGUAGE_CODES = {
-    "spanish": "es",
     "german": "de",
+    "english": "en",
+    "spanish": "es",
     "polish": "pl",
-    "english": "en"
+    "french": "fr",
+    "italian": "it",
+    "portuguese": "pt",
+    "dutch": "nl",
+    "russian": "ru",
 }
 
 # API Keys from environment variables
 DEEPL_API_KEY = os.environ.get("DEEPL_API_KEY", "")
 PONS_API_SECRET = os.environ.get("PONS_API_SECRET", "")
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
 
 
 def translate_google(text: str, source: str, target: str) -> str:
@@ -37,6 +43,8 @@ def translate_google(text: str, source: str, target: str) -> str:
             result = response.json()
             if result and result[0]:
                 return "".join([item[0] for item in result[0] if item[0]])
+        elif response.status_code == 429:
+            return "[Limit]"
         return "[Error]"
     except Exception:
         return "[Error]"
@@ -103,7 +111,12 @@ def translate_reverso(text: str, source: str, target: str) -> str:
             'de': 'ger',
             'en': 'eng',
             'es': 'spa',
-            'pl': 'pol'
+            'pl': 'pol',
+            'fr': 'fra',
+            'it': 'ita',
+            'pt': 'por',
+            'nl': 'dut',
+            'ru': 'rus',
         }
 
         src = lang_map.get(source, 'eng')
@@ -145,16 +158,34 @@ def translate_deepl(text: str, source: str, target: str) -> str:
         if not DEEPL_API_KEY:
             return "[No API Key]"
 
-        # DeepL language codes (uppercase, some special cases)
-        lang_map = {
+        # DeepL source language codes
+        source_map = {
             'de': 'DE',
             'en': 'EN',
             'es': 'ES',
-            'pl': 'PL'
+            'pl': 'PL',
+            'fr': 'FR',
+            'it': 'IT',
+            'pt': 'PT',
+            'nl': 'NL',
+            'ru': 'RU',
         }
 
-        src = lang_map.get(source, 'EN')
-        tgt = lang_map.get(target, 'EN')
+        # DeepL target language codes (English/Portuguese require region)
+        target_map = {
+            'de': 'DE',
+            'en': 'EN-US',
+            'es': 'ES',
+            'pl': 'PL',
+            'fr': 'FR',
+            'it': 'IT',
+            'pt': 'PT-PT',
+            'nl': 'NL',
+            'ru': 'RU',
+        }
+
+        src = source_map.get(source, 'EN')
+        tgt = target_map.get(target, 'EN-US')
 
         # DeepL Free API uses api-free.deepl.com
         url = "https://api-free.deepl.com/v2/translate"
@@ -175,6 +206,8 @@ def translate_deepl(text: str, source: str, target: str) -> str:
             data = response.json()
             if data.get("translations"):
                 return data["translations"][0]["text"]
+        elif response.status_code in [429, 456]:
+            return "[Limit]"
         return "[Error]"
     except Exception:
         return "[Error]"
@@ -201,6 +234,8 @@ def translate_lingva(text: str, source: str, target: str) -> str:
                     data = response.json()
                     if data.get("translation"):
                         return data["translation"]
+                elif response.status_code == 429:
+                    return "[Limit]"
             except Exception:
                 continue
 
@@ -225,18 +260,25 @@ def translate_pons(text: str, source: str, target: str) -> str:
             'de': 'de',
             'en': 'en',
             'es': 'es',
-            'pl': 'pl'
+            'pl': 'pl',
+            'fr': 'fr',
+            'it': 'it',
+            'pt': 'pt',
+            'nl': 'nl',
+            'ru': 'ru',
         }
 
         src = lang_map.get(source, 'de')
         tgt = lang_map.get(target, 'en')
 
         # PONS language pair format (source + target, alphabetically sorted in some cases)
-        # Common pairs: deen, dees, depl, enes, enpl, espl
+        # Common pairs: deen, dees, depl, enes, enpl, espl, defr, enfr, deit, deru, denl, deptr
         pair = f"{src}{tgt}"
 
         # Some pairs need to be reversed (PONS convention)
-        valid_pairs = ['deen', 'dees', 'depl', 'enes', 'enpl', 'espl', 'defr', 'enfr']
+        valid_pairs = ['deen', 'dees', 'depl', 'enes', 'enpl', 'espl', 'defr', 'enfr',
+                       'deit', 'enit', 'esit', 'frit', 'deru', 'enru', 'denl', 'ennl',
+                       'dept', 'enpt', 'espt', 'frpt']
         reverse_pair = f"{tgt}{src}"
 
         if pair not in valid_pairs and reverse_pair in valid_pairs:
@@ -297,80 +339,164 @@ def translate_pons(text: str, source: str, target: str) -> str:
                 if all_translations:
                     # Return all unique translations separated by comma
                     return ", ".join(all_translations[:8])  # Limit to 8 alternatives
+        elif response.status_code == 429:
+            return "[Limit]"
         return "[Error]"
     except Exception:
         return "[Error]"
 
 
-def get_ai_explanation(text: str, lang_code: str) -> str:
-    """Get AI explanation of the word/phrase using Google Gemini."""
-    if not GEMINI_API_KEY:
+def get_pons_definition(text: str, lang_code: str) -> str:
+    """Get word definition from PONS dictionary in the source language."""
+    import re
+    import html
+
+    if not PONS_API_SECRET:
         return ""
 
     try:
-        # Map language codes to full names
-        lang_names = {
-            'de': 'German',
-            'en': 'English',
-            'es': 'Spanish',
-            'pl': 'Polish'
-        }
-        lang_name = lang_names.get(lang_code, 'German')
+        # PONS needs a language pair
+        if lang_code == 'de':
+            pair = 'deen'
+        elif lang_code == 'en':
+            pair = 'enes' if lang_code == 'en' else 'deen'
+            pair = 'deen'  # English words in DE-EN dictionary
+        elif lang_code == 'es':
+            pair = 'dees'
+        elif lang_code == 'pl':
+            pair = 'depl'
+        else:
+            pair = 'deen'
 
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={GEMINI_API_KEY}"
+        url = f"https://api.pons.com/v1/dictionary?l={pair}&q={requests.utils.quote(text)}"
+        headers = {"X-Secret": PONS_API_SECRET}
 
-        prompt = f"""Erkläre das Wort oder den Ausdruck "{text}" kurz und prägnant auf {lang_name if lang_code != 'de' else 'Deutsch'}.
-- Maximal 3-4 Zeilen
-- Einfache Sprache
-- Keine Aufzählungen, nur Fließtext
-- Fokus auf Bedeutung und typische Verwendung"""
-
-        payload = {
-            "contents": [{
-                "parts": [{"text": prompt}]
-            }],
-            "generationConfig": {
-                "temperature": 0.3,
-                "maxOutputTokens": 150
-            }
-        }
-
-        response = requests.post(url, json=payload, timeout=10)
-
+        response = requests.get(url, headers=headers, timeout=10)
         if response.status_code == 200:
             data = response.json()
-            if data.get("candidates"):
-                content = data["candidates"][0].get("content", {})
-                parts = content.get("parts", [])
-                if parts:
-                    return parts[0].get("text", "").strip()
-        elif response.status_code == 429:
-            return "[LIMIT] API-Limit erreicht. Bitte später erneut versuchen."
+            if data and len(data) > 0:
+                hits = data[0].get("hits", [])
+                definitions = []
+
+                for hit in hits[:2]:
+                    roms = hit.get("roms", [])
+                    for rom in roms[:2]:
+                        wordclass = rom.get("wordclass", "")
+                        headword_full = rom.get("headword_full", "")
+
+                        # Clean headword_full - this contains grammatical info
+                        if headword_full:
+                            clean_hw = re.sub(r'<[^>]+>', '', headword_full)
+                            clean_hw = html.unescape(clean_hw).strip()
+                            if wordclass and clean_hw:
+                                definitions.append(f"[{wordclass}] {clean_hw}")
+
+                        arabs = rom.get("arabs", [])
+                        for arab in arabs[:3]:
+                            header = arab.get("header", "")
+                            if header:
+                                # Header contains context/meaning in source language
+                                header = re.sub(r'<[^>]+>', '', header)
+                                header = html.unescape(header).strip()
+                                # Remove numbering like "1. " or "2. "
+                                header = re.sub(r'^\d+\.\s*', '', header)
+                                if header and len(header) > 2:
+                                    definitions.append(header)
+
+                if definitions:
+                    # Return unique definitions
+                    unique = []
+                    for d in definitions:
+                        d = d.strip()
+                        # Remove trailing colons
+                        d = re.sub(r':$', '', d).strip()
+                        if d and len(d) > 2 and d not in unique and len(unique) < 4:
+                            unique.append(d)
+                    return " • ".join(unique)
 
         return ""
     except Exception:
         return ""
 
 
-def translate_to_all_languages(text: str, source_lang: str = None) -> dict:
-    """Translate to all target languages using multiple sources in parallel."""
+def get_groq_explanation(text: str, lang_code: str) -> str:
+    """Get AI explanation using Groq (LLaMA)."""
+    if not GROQ_API_KEY:
+        return ""
 
-    # Simple language detection
+    try:
+        lang_names = {
+            'de': 'Deutsch',
+            'en': 'English',
+            'es': 'Español',
+            'pl': 'Polski',
+            'fr': 'Français',
+            'it': 'Italiano',
+            'pt': 'Português',
+            'nl': 'Nederlands',
+            'ru': 'Русский',
+        }
+        lang_name = lang_names.get(lang_code, 'Deutsch')
+
+        url = "https://api.groq.com/openai/v1/chat/completions"
+
+        headers = {
+            "Authorization": f"Bearer {GROQ_API_KEY}",
+            "Content-Type": "application/json"
+        }
+
+        prompt = f"""Explain "{text}" briefly in {lang_name}. Maximum 2 sentences. No bullet points."""
+
+        payload = {
+            "model": "llama-3.1-8b-instant",
+            "messages": [{"role": "user", "content": prompt}],
+            "temperature": 0.3,
+            "max_tokens": 100
+        }
+
+        response = requests.post(url, json=payload, headers=headers, timeout=10)
+
+        if response.status_code == 200:
+            data = response.json()
+            if data.get("choices"):
+                return data["choices"][0]["message"]["content"].strip()
+        elif response.status_code == 429:
+            return "[Limit] API-Limit erreicht"
+
+        return ""
+    except Exception:
+        return ""
+
+
+def translate_to_all_languages(
+    text: str,
+    source_lang: str = None,
+    target_languages: list = None,
+    enabled_services: dict = None,
+    explanation_services: dict = None
+) -> dict:
+    """Translate to all target languages using multiple sources in parallel.
+
+    Args:
+        text: The text to translate
+        source_lang: Source language name (e.g., 'german')
+        target_languages: List of target language names (e.g., ['english', 'spanish', 'french'])
+        enabled_services: Dict of service names to booleans (e.g., {'DeepL': True, 'PONS': False})
+        explanation_services: Dict of explanation services (e.g., {'PONS Definition': True, 'Groq AI': True})
+    """
+
+    # Default to german if no source language provided
     if not source_lang or source_lang == "auto":
-        text_lower = text.lower()
-        if any(w in text_lower for w in ['der', 'die', 'das', 'und', 'ist', 'ein', 'eine', 'für', 'mit']):
-            source_lang = "german"
-        elif any(w in text_lower for w in ['the', 'is', 'are', 'and', 'of', 'to', 'in', 'for']):
-            source_lang = "english"
-        elif any(w in text_lower for w in ['el', 'la', 'los', 'las', 'es', 'que', 'por', 'para']):
-            source_lang = "spanish"
-        elif any(w in text_lower for w in ['jest', 'nie', 'tak', 'się', 'czy', 'jak']):
-            source_lang = "polish"
-        else:
-            source_lang = "german"
+        source_lang = "german"
 
-    source_code = LANGUAGE_CODES.get(source_lang, "en")
-    target_languages = [lang for lang in ["spanish", "german", "polish", "english"] if lang != source_lang]
+    source_code = LANGUAGE_CODES.get(source_lang, "de")
+
+    # Default target languages if not specified
+    if target_languages is None:
+        target_languages = [lang for lang in ["spanish", "german", "polish", "english"] if lang != source_lang]
+    else:
+        # Filter out source language from targets
+        target_languages = [lang for lang in target_languages if lang != source_lang]
 
     result = {
         "source_language": source_lang,
@@ -378,19 +504,38 @@ def translate_to_all_languages(text: str, source_lang: str = None) -> dict:
         "translations": {}
     }
 
-    translators = {
+    all_translators = {
         "DeepL": translate_deepl,
         "PONS": translate_pons,
         "Google": translate_google,
         "Lingva": translate_lingva,
     }
 
-    # Execute translations and AI explanation in parallel
+    # Filter translators based on enabled_services
+    if enabled_services:
+        translators = {name: func for name, func in all_translators.items()
+                       if enabled_services.get(name, True)}
+    else:
+        translators = all_translators
+
+    # Determine if explanation services are enabled
+    pons_explanation_enabled = True
+    groq_explanation_enabled = True
+    if explanation_services:
+        pons_explanation_enabled = explanation_services.get("PONS Definition", True)
+        groq_explanation_enabled = explanation_services.get("Groq AI", True)
+
+    # Execute translations and explanations in parallel
     with ThreadPoolExecutor(max_workers=12) as executor:
         futures = {}
 
-        # Submit AI explanation request
-        ai_future = executor.submit(get_ai_explanation, text, source_code)
+        # Submit PONS definition and Groq explanation requests if enabled
+        pons_future = None
+        groq_future = None
+        if pons_explanation_enabled:
+            pons_future = executor.submit(get_pons_definition, text, source_code)
+        if groq_explanation_enabled:
+            groq_future = executor.submit(get_groq_explanation, text, source_code)
 
         for target_lang in target_languages:
             target_code = LANGUAGE_CODES.get(target_lang, "en")
@@ -408,10 +553,22 @@ def translate_to_all_languages(text: str, source_lang: str = None) -> dict:
             except Exception:
                 result["translations"][target_lang][name] = "[Error]"
 
-        # Get AI explanation
-        try:
-            result["ai_explanation"] = ai_future.result()
-        except Exception:
+        # Get PONS definition
+        if pons_future:
+            try:
+                result["ai_explanation"] = pons_future.result()
+            except Exception:
+                result["ai_explanation"] = ""
+        else:
             result["ai_explanation"] = ""
+
+        # Get Groq explanation
+        if groq_future:
+            try:
+                result["groq_explanation"] = groq_future.result()
+            except Exception:
+                result["groq_explanation"] = ""
+        else:
+            result["groq_explanation"] = ""
 
     return result

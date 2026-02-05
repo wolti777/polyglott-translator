@@ -35,14 +35,23 @@ templates = Jinja2Templates(directory="templates")
 class TranslateRequest(BaseModel):
     text: str
     source_language: Optional[str] = None
+    target_languages: Optional[list] = None
+    enabled_services: Optional[dict] = None
+    explanation_services: Optional[dict] = None
 
 
 class SaveGlossaryRequest(BaseModel):
-    spanish: str
-    german: str
-    polish: str
-    english: str
+    spanish: Optional[str] = None
+    german: Optional[str] = None
+    polish: Optional[str] = None
+    english: Optional[str] = None
     glossary_id: Optional[int] = None
+    # Slot-based entries: slot1, slot2, slot3, slot4 with language_config
+    slot1: Optional[str] = None
+    slot2: Optional[str] = None
+    slot3: Optional[str] = None
+    slot4: Optional[str] = None
+    language_config: Optional[list] = None  # e.g., ["german", "spanish", "french", "english"]
 
 
 class CreateGlossaryRequest(BaseModel):
@@ -195,7 +204,13 @@ async def translate(
     if not text:
         raise HTTPException(status_code=400, detail="Text is required")
 
-    translations = translate_to_all_languages(text, translate_request.source_language)
+    translations = translate_to_all_languages(
+        text,
+        translate_request.source_language,
+        translate_request.target_languages,
+        translate_request.enabled_services,
+        translate_request.explanation_services
+    )
     return translations
 
 
@@ -309,18 +324,88 @@ async def save_to_glossary(
     else:
         glossary = get_or_create_default_glossary(db, user.id)
 
-    entry = GlossaryEntry(
-        user_id=user.id,
-        glossary_id=glossary.id,
-        spanish=glossary_request.spanish,
-        german=glossary_request.german,
-        polish=glossary_request.polish,
-        english=glossary_request.english,
-    )
+    # Handle slot-based format with language_config
+    if glossary_request.language_config and glossary_request.slot1 is not None:
+        # Map slots to database columns based on language_config
+        lang_to_slot = {}
+        slots = [glossary_request.slot1, glossary_request.slot2,
+                 glossary_request.slot3, glossary_request.slot4]
+        for i, lang in enumerate(glossary_request.language_config):
+            if i < len(slots):
+                lang_to_slot[lang] = slots[i]
+
+        entry = GlossaryEntry(
+            user_id=user.id,
+            glossary_id=glossary.id,
+            spanish=lang_to_slot.get("spanish", ""),
+            german=lang_to_slot.get("german", ""),
+            polish=lang_to_slot.get("polish", ""),
+            english=lang_to_slot.get("english", ""),
+        )
+    else:
+        # Legacy format with direct column names
+        entry = GlossaryEntry(
+            user_id=user.id,
+            glossary_id=glossary.id,
+            spanish=glossary_request.spanish or "",
+            german=glossary_request.german or "",
+            polish=glossary_request.polish or "",
+            english=glossary_request.english or "",
+        )
     db.add(entry)
     db.commit()
 
     return {"success": True, "message": f"Entry saved to {glossary.name}"}
+
+
+@app.get("/glossary/recent")
+async def get_recent_entries(
+    request: Request,
+    glossary_id: Optional[int] = None,
+    db: Session = Depends(get_db)
+):
+    """Get the 4 most recent entries for a glossary."""
+    user = await get_current_user(request, db)
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    # Get specific glossary or default
+    if glossary_id:
+        glossary = db.query(Glossary).filter(
+            Glossary.id == glossary_id,
+            Glossary.user_id == user.id
+        ).first()
+        if not glossary:
+            raise HTTPException(status_code=404, detail="Glossary not found")
+    else:
+        glossary = get_or_create_default_glossary(db, user.id)
+
+    # Get 4 most recent entries
+    entries = (
+        db.query(GlossaryEntry)
+        .filter(GlossaryEntry.glossary_id == glossary.id)
+        .order_by(GlossaryEntry.created_at.desc())
+        .limit(4)
+        .all()
+    )
+
+    # Return all 4 language columns - frontend will display based on settings
+    return [
+        {
+            "spanish": e.spanish,
+            "german": e.german,
+            "polish": e.polish,
+            "english": e.english,
+            # Include all for dynamic display
+            "entries": {
+                "spanish": e.spanish,
+                "german": e.german,
+                "polish": e.polish,
+                "english": e.english,
+            }
+        }
+        for e in entries
+    ]
 
 
 @app.get("/glossary/export")
