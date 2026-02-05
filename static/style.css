@@ -556,3 +556,588 @@ body {
 .flag-small {
     font-size: 1rem;
 }
+
+/* Custom Input Section */
+.custom-input-section {
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+    border-top: 1px dashed var(--border-color);
+}
+
+.custom-input-wrapper {
+    display: flex;
+    gap: 0.5rem;
+    align-items: stretch;
+    padding: 0.375rem;
+    border-radius: 0.5rem;
+    border: 2px solid var(--border-color);
+    background: var(--bg-color);
+    transition: border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.custom-input-wrapper:focus-within {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+}
+
+.custom-input-wrapper.selected {
+    background: #dbeafe;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
+}
+
+.custom-translation-input {
+    flex: 1;
+    padding: 0.75rem 1rem;
+    border: none;
+    border-radius: 0.375rem;
+    font-size: 1rem;
+    font-family: inherit;
+    background: white;
+    transition: background-color 0.2s ease;
+}
+
+.custom-translation-input:focus {
+    outline: none;
+}
+
+.custom-translation-input.selected {
+    background: white;
+}
+
+.custom-translation-input::placeholder {
+    color: var(--text-muted);
+    font-style: italic;
+}
+
+.custom-input-btn {
+    padding: 0.75rem 1.25rem;
+    background: var(--success-color);
+    color: white;
+    border: none;
+    border-radius: 0.375rem;
+    cursor: pointer;
+    font-size: 1.125rem;
+    font-weight: 600;
+    transition: background-color 0.15s ease, transform 0.1s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.custom-input-btn:hover {
+    background: var(--success-hover);
+    transform: scale(1.05);
+}
+
+.custom-input-btn:active {
+    transform: scale(0.98);
+}
+
+/* PONS Badge styling */
+.source-badge.pons-badge {
+    background: #8b5cf6;
+}
+
+.translation-option.pons-option.selected .source-badge.pons-badge {
+    background: #7c3aed;
+}
+
+/* Glossary Selector */
+.glossary-wrapper {
+    display: flex;
+    position: relative;
+}
+
+.glossary-btn {
+    border-radius: 0.5rem 0 0 0.5rem;
+    border-right: 1px solid rgba(255,255,255,0.2);
+}
+
+.glossary-toggle {
+    border-radius: 0 0.5rem 0.5rem 0;
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+    font-size: 0.625rem;
+}
+
+#selected-glossary-name {
+    max-width: 120px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: inline-block;
+}
+
+.glossary-menu {
+    display: none;
+    position: absolute;
+    top: calc(100% + 0.375rem);
+    left: 0;
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 0.5rem;
+    box-shadow: var(--shadow-lg);
+    z-index: 100;
+    min-width: 220px;
+    overflow: hidden;
+}
+
+.glossary-menu.show {
+    display: block;
+}
+
+.glossary-menu-header {
+    padding: 0.625rem 1rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    background: var(--bg-color);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.glossary-list {
+    max-height: 180px;
+    overflow-y: auto;
+}
+
+.glossary-option {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem 1rem;
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+    font-size: 0.875rem;
+}
+
+.glossary-option:hover {
+    background-color: var(--bg-color);
+}
+
+.glossary-option.selected {
+    background-color: #dbeafe;
+    color: var(--primary-color);
+    font-weight: 500;
+}
+
+.glossary-name {
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.glossary-count {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    background: var(--bg-color);
+    padding: 0.125rem 0.5rem;
+    border-radius: 1rem;
+    margin-left: 0.5rem;
+}
+
+.glossary-option.selected .glossary-count {
+    background: rgba(79, 70, 229, 0.15);
+    color: var(--primary-color);
+}
+
+.glossary-create-row {
+    display: flex;
+    gap: 0.375rem;
+    padding: 0.625rem;
+    border-top: 1px solid var(--border-color);
+    background: var(--bg-color);
+}
+
+.glossary-create-row input {
+    flex: 1;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--border-color);
+    border-radius: 0.375rem;
+    font-size: 0.8125rem;
+    font-family: inherit;
+    background: white;
+}
+
+.glossary-create-row input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+}
+
+.glossary-create-row button {
+    padding: 0.5rem 0.875rem;
+    background: var(--primary-color);
+    color: white;
+    border: none;
+    border-radius: 0.375rem;
+    cursor: pointer;
+    font-size: 1rem;
+    font-weight: 600;
+    transition: background-color 0.15s ease;
+}
+
+.glossary-create-row button:hover {
+    background: var(--primary-hover);
+}
+
+/* AI Explanation Box */
+.ai-explanation-box {
+    background: linear-gradient(135deg, #faf5ff 0%, #f3e8ff 100%);
+    border: 1px solid #d8b4fe;
+    border-radius: 0.75rem;
+    padding: 1rem 1.25rem;
+    box-shadow: var(--shadow);
+}
+
+.ai-explanation-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.625rem;
+    font-weight: 600;
+    font-size: 0.875rem;
+    color: #7c3aed;
+}
+
+.ai-icon {
+    font-size: 1.125rem;
+}
+
+#ai-explanation-content {
+    font-size: 0.9375rem;
+    line-height: 1.65;
+    color: var(--text-color);
+    max-height: 6em;
+    overflow: hidden;
+}
+
+.ai-explanation-box.limit-reached {
+    background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+    border-color: #f59e0b;
+}
+
+.ai-explanation-box.limit-reached .ai-explanation-header {
+    color: #b45309;
+}
+
+.ai-explanation-box.limit-reached #ai-explanation-content {
+    color: #92400e;
+    font-style: italic;
+}
+
+/* App Footer */
+.app-footer {
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+    margin-top: 2rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border-color);
+}
+
+/* ==================== MOBILE STYLES ==================== */
+
+@media (max-width: 768px) {
+    /* Base adjustments */
+    body {
+        font-size: 16px; /* Prevent zoom on input focus in iOS */
+    }
+
+    .app-container {
+        padding: 1rem;
+        padding-bottom: 2rem;
+    }
+
+    /* Header - horizontal on mobile with logo left, glossary right */
+    .app-header {
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5rem;
+        margin-bottom: 1rem;
+    }
+
+    .logo {
+        flex-shrink: 0;
+    }
+
+    .logo h1 {
+        font-size: 1.125rem;
+    }
+
+    .logo-icon {
+        font-size: 1.375rem;
+    }
+
+    /* Header actions - glossary on right */
+    .header-actions {
+        flex-shrink: 0;
+    }
+
+    .header-actions .btn {
+        padding: 0.625rem 0.75rem;
+        font-size: 0.75rem;
+    }
+
+    /* Glossary selector mobile */
+    .glossary-wrapper {
+        position: relative;
+    }
+
+    .glossary-btn {
+        padding: 0.625rem 0.75rem;
+        font-size: 0.75rem;
+    }
+
+    .glossary-toggle {
+        padding: 0.625rem 0.5rem;
+    }
+
+    #selected-glossary-name {
+        max-width: 80px;
+    }
+
+    .glossary-menu {
+        left: auto;
+        right: 0;
+        transform: none;
+        min-width: 200px;
+        max-width: calc(100vw - 1rem);
+    }
+
+    /* Footer */
+    .app-footer {
+        margin-top: 1.5rem;
+        padding-top: 1rem;
+    }
+
+    /* Input section */
+    .input-section {
+        padding: 1rem;
+        border-radius: 0.75rem;
+    }
+
+    .input-header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.75rem;
+    }
+
+    .input-header label {
+        text-align: center;
+    }
+
+    .language-selector {
+        justify-content: center;
+        padding: 0.75rem 1rem;
+    }
+
+    .language-dropdown {
+        left: 50%;
+        right: auto;
+        transform: translateX(-50%);
+        min-width: 200px;
+    }
+
+    .input-section textarea {
+        font-size: 1rem;
+        padding: 0.875rem;
+        min-height: 80px;
+    }
+
+    /* Larger touch targets for buttons */
+    .btn {
+        min-height: 44px; /* iOS recommended touch target */
+        padding: 0.75rem 1.25rem;
+    }
+
+    .btn-large {
+        padding: 1rem 1.5rem;
+        font-size: 1.0625rem;
+    }
+
+    /* AI Explanation Box */
+    .ai-explanation-box {
+        padding: 0.875rem 1rem;
+    }
+
+    .ai-explanation-header {
+        font-size: 0.8125rem;
+    }
+
+    #ai-explanation-content {
+        font-size: 0.875rem;
+    }
+
+    /* Translation cards */
+    .translation-card {
+        border-radius: 0.625rem;
+    }
+
+    .translation-card:hover {
+        transform: none; /* Disable hover effect on mobile */
+    }
+
+    .card-header {
+        padding: 0.625rem 0.875rem;
+    }
+
+    .card-header h3 {
+        font-size: 0.8125rem;
+    }
+
+    .card-content {
+        padding: 0.375rem;
+        min-height: 60px;
+    }
+
+    /* Translation options - larger touch targets */
+    .translation-option {
+        padding: 0.625rem 0.75rem;
+        min-height: 44px;
+    }
+
+    .translation-option .translation-text {
+        font-size: 0.9375rem;
+    }
+
+    .source-badge {
+        font-size: 0.5625rem;
+        padding: 0.1875rem 0.375rem;
+    }
+
+    /* Custom input section */
+    .custom-input-section {
+        margin-top: 0.625rem;
+        padding-top: 0.625rem;
+    }
+
+    .custom-input-wrapper {
+        padding: 0.25rem;
+    }
+
+    .custom-translation-input {
+        padding: 0.625rem 0.75rem;
+        font-size: 1rem;
+    }
+
+    .custom-input-btn {
+        padding: 0.625rem 1rem;
+        min-width: 44px;
+    }
+
+    /* Selection status */
+    .selection-status {
+        padding: 0.625rem;
+        font-size: 0.8125rem;
+    }
+
+    /* Recent saves */
+    .recent-saves {
+        padding: 1rem;
+        border-radius: 0.75rem;
+    }
+
+    .recent-saves h3 {
+        font-size: 0.9375rem;
+    }
+
+    .recent-save-item {
+        padding: 0.625rem 0.875rem;
+        font-size: 0.8125rem;
+        grid-template-columns: 1fr;
+        gap: 0.375rem;
+    }
+}
+
+/* Extra small screens (iPhone SE, etc.) */
+@media (max-width: 375px) {
+    .app-container {
+        padding: 0.75rem;
+    }
+
+    .logo h1 {
+        font-size: 1.125rem;
+    }
+
+    .header-actions {
+        gap: 0.375rem;
+    }
+
+    .header-actions .btn {
+        padding: 0.625rem 0.75rem;
+        font-size: 0.75rem;
+    }
+
+    .glossary-btn {
+        padding: 0.625rem 0.75rem;
+    }
+
+    .glossary-toggle {
+        padding: 0.625rem 0.5rem;
+    }
+
+    .input-section {
+        padding: 0.875rem;
+    }
+
+    .translation-option .translation-text {
+        font-size: 0.875rem;
+    }
+}
+
+/* Touch device optimizations */
+@media (hover: none) and (pointer: coarse) {
+    /* Remove hover effects on touch devices */
+    .btn:hover:not(:disabled) {
+        transform: none;
+    }
+
+    .translation-card:hover {
+        transform: none;
+        box-shadow: var(--shadow);
+    }
+
+    .translation-option:hover {
+        background: var(--bg-color);
+    }
+
+    /* Add active states instead */
+    .btn:active:not(:disabled) {
+        transform: scale(0.98);
+        opacity: 0.9;
+    }
+
+    .translation-option:active {
+        background: #e2e8f0;
+    }
+}
+
+/* Landscape mode on mobile */
+@media (max-width: 768px) and (orientation: landscape) {
+    .app-header {
+        flex-direction: row;
+        align-items: center;
+    }
+
+    .header-actions {
+        flex-wrap: nowrap;
+    }
+
+    .translations-grid-3 {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+/* Safe area insets for notched phones */
+@supports (padding: max(0px)) {
+    .app-container {
+        padding-left: max(1rem, env(safe-area-inset-left));
+        padding-right: max(1rem, env(safe-area-inset-right));
+        padding-bottom: max(2rem, env(safe-area-inset-bottom));
+    }
+}
+

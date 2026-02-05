@@ -10,8 +10,20 @@
             <h1>Polyglot Translator</h1>
         </div>
         <div class="header-actions">
-            <a href="/glossary/export" class="btn btn-secondary">Export Glossary</a>
-            <a href="/logout" class="btn btn-outline">Logout</a>
+            <div class="glossary-wrapper">
+                <button class="btn btn-secondary glossary-btn">
+                    <span id="selected-glossary-name">Hauptglossar</span>
+                </button>
+                <button class="btn btn-secondary glossary-toggle" id="glossary-menu-btn" title="Glossar wechseln">▼</button>
+                <div class="glossary-menu" id="glossary-dropdown">
+                    <div class="glossary-menu-header">Glossar auswählen</div>
+                    <div class="glossary-list" id="glossary-list"></div>
+                    <div class="glossary-create-row">
+                        <input type="text" id="new-glossary-name" placeholder="Neues Glossar...">
+                        <button id="create-glossary-btn">+</button>
+                    </div>
+                </div>
+            </div>
         </div>
     </header>
 
@@ -46,6 +58,14 @@
             <button id="translate-btn" class="btn btn-primary btn-large">Translate</button>
         </div>
 
+        <div id="ai-explanation-box" class="ai-explanation-box" style="display: none;">
+            <div class="ai-explanation-header">
+                <span class="ai-icon">✨</span>
+                <span>KI-Erklärung</span>
+            </div>
+            <div id="ai-explanation-content"></div>
+        </div>
+
         <div id="translations-container" class="translations-grid-3" style="display: none;">
             <!-- Translation boxes will be dynamically generated -->
         </div>
@@ -58,6 +78,11 @@
             <h3>Recent Saves</h3>
             <div id="recent-saves-list" class="recent-saves-list"></div>
         </div>
+
+        <footer class="app-footer">
+            <a href="#" id="export-glossary-btn" class="btn btn-secondary">Export</a>
+            <a href="/logout" class="btn btn-outline">Logout</a>
+        </footer>
     </main>
 </div>
 {% endblock %}
@@ -73,11 +98,24 @@
     const translationsContainer = document.getElementById('translations-container');
     const selectionStatus = document.getElementById('selection-status');
     const selectionCount = document.getElementById('selection-count');
+    const aiExplanationBox = document.getElementById('ai-explanation-box');
+    const aiExplanationContent = document.getElementById('ai-explanation-content');
+
+    // Glossary elements
+    const glossaryMenuBtn = document.getElementById('glossary-menu-btn');
+    const glossaryDropdown = document.getElementById('glossary-dropdown');
+    const glossaryList = document.getElementById('glossary-list');
+    const selectedGlossaryName = document.getElementById('selected-glossary-name');
+    const newGlossaryInput = document.getElementById('new-glossary-name');
+    const createGlossaryBtn = document.getElementById('create-glossary-btn');
+    const exportGlossaryBtn = document.getElementById('export-glossary-btn');
 
     let currentData = null;
     let recentSaves = [];
     let selectedLanguage = localStorage.getItem('selectedLanguage') || 'auto';
     let selections = {};
+    let glossaries = [];
+    let selectedGlossaryId = localStorage.getItem('selectedGlossaryId') || null;
 
     const languageNames = {
         'auto': 'Auto-detect',
@@ -96,10 +134,10 @@
     };
 
     const sourceNames = {
-        'GoogT': 'Google Translate',
-        'MyMem': 'MyMemory',
-        'Yandex': 'Yandex',
-        'Reverso': 'Reverso'
+        'DeepL': 'DeepL',
+        'PONS': 'PONS',
+        'Google': 'Google',
+        'Lingva': 'Lingva'
     };
 
     function updateLanguageDisplay(lang) {
@@ -128,13 +166,135 @@
 
     document.addEventListener('click', () => {
         languageDropdown.classList.remove('show');
+        glossaryDropdown.classList.remove('show');
     });
+
+    // ==================== Glossary Functions ====================
+
+    async function loadGlossaries() {
+        try {
+            const response = await fetch('/glossaries');
+            if (response.ok) {
+                glossaries = await response.json();
+                renderGlossaryList();
+
+                // Select saved glossary or default
+                if (selectedGlossaryId) {
+                    const found = glossaries.find(g => g.id == selectedGlossaryId);
+                    if (found) {
+                        selectedGlossaryName.textContent = found.name;
+                    } else {
+                        selectDefaultGlossary();
+                    }
+                } else {
+                    selectDefaultGlossary();
+                }
+            }
+        } catch (error) {
+            console.error('Error loading glossaries:', error);
+        }
+    }
+
+    function selectDefaultGlossary() {
+        const defaultGlossary = glossaries.find(g => g.is_default);
+        if (defaultGlossary) {
+            selectedGlossaryId = defaultGlossary.id;
+            selectedGlossaryName.textContent = defaultGlossary.name;
+            localStorage.setItem('selectedGlossaryId', selectedGlossaryId);
+        }
+    }
+
+    function renderGlossaryList() {
+        glossaryList.innerHTML = '';
+        glossaries.forEach(g => {
+            const option = document.createElement('div');
+            option.className = 'glossary-option' + (g.id == selectedGlossaryId ? ' selected' : '');
+            option.dataset.id = g.id;
+            option.innerHTML = `
+                <span class="glossary-name">${g.name}</span>
+                <span class="glossary-count">${g.entry_count}</span>
+            `;
+            option.addEventListener('click', (e) => {
+                e.stopPropagation();
+                selectedGlossaryId = g.id;
+                selectedGlossaryName.textContent = g.name;
+                localStorage.setItem('selectedGlossaryId', selectedGlossaryId);
+                glossaryDropdown.classList.remove('show');
+                renderGlossaryList();
+            });
+            glossaryList.appendChild(option);
+        });
+    }
+
+    // Toggle glossary dropdown
+    glossaryMenuBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        glossaryDropdown.classList.toggle('show');
+        languageDropdown.classList.remove('show');
+    });
+
+    // Create new glossary
+    createGlossaryBtn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const name = newGlossaryInput.value.trim();
+        if (!name) return;
+
+        try {
+            const response = await fetch('/glossaries', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: name })
+            });
+
+            if (response.ok) {
+                const newGlossary = await response.json();
+                glossaries.push(newGlossary);
+                newGlossaryInput.value = '';
+
+                // Auto-select the new glossary
+                selectedGlossaryId = newGlossary.id;
+                selectedGlossaryName.textContent = newGlossary.name;
+                localStorage.setItem('selectedGlossaryId', selectedGlossaryId);
+
+                renderGlossaryList();
+            } else {
+                const error = await response.json();
+                alert(error.detail || 'Fehler beim Erstellen');
+            }
+        } catch (error) {
+            console.error('Error creating glossary:', error);
+        }
+    });
+
+    newGlossaryInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            createGlossaryBtn.click();
+        }
+        e.stopPropagation();
+    });
+
+    newGlossaryInput.addEventListener('click', (e) => {
+        e.stopPropagation();
+    });
+
+    // Export glossary
+    exportGlossaryBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        const url = selectedGlossaryId ? `/glossary/export?glossary_id=${selectedGlossaryId}` : '/glossary/export';
+        window.location.href = url;
+    });
+
+    // Load glossaries on page load
+    loadGlossaries();
 
     function clearFields() {
         inputText.value = '';
         translationsContainer.style.display = 'none';
         translationsContainer.innerHTML = '';
         selectionStatus.style.display = 'none';
+        aiExplanationBox.style.display = 'none';
+        aiExplanationContent.textContent = '';
         currentData = null;
         selections = {};
     }
@@ -183,7 +343,8 @@
             spanish: selections.spanish || currentData.source_text,
             german: selections.german || currentData.source_text,
             polish: selections.polish || currentData.source_text,
-            english: selections.english || currentData.source_text
+            english: selections.english || currentData.source_text,
+            glossary_id: selectedGlossaryId ? parseInt(selectedGlossaryId) : null
         };
 
         // Set source language text
@@ -199,6 +360,8 @@
             if (response.ok) {
                 updateRecentSaves(saveData);
                 clearFields();
+                // Reload glossaries to update count
+                loadGlossaries();
             }
         } catch (error) {
             console.error('Error saving:', error);
@@ -224,14 +387,39 @@
             const langName = languageNames[lang];
 
             let optionsHtml = '';
+
+            // Collect unique translations
+            const seenTranslations = new Set();
+
             for (const [sourceKey, translation] of Object.entries(sources)) {
-                const sourceName = sourceNames[sourceKey];
-                optionsHtml += `
-                    <div class="translation-option" data-source="${sourceKey}" data-translation="${translation}">
-                        <span class="source-badge">${sourceKey}</span>
-                        <span class="translation-text">${translation}</span>
-                    </div>
-                `;
+                if (translation === '[Error]' || translation === '[No API Key]') continue;
+
+                // For PONS, split by comma to show alternatives separately
+                if (sourceKey === 'PONS' && translation.includes(',')) {
+                    const alternatives = translation.split(',').map(t => t.trim());
+                    alternatives.forEach((alt, idx) => {
+                        if (alt && !seenTranslations.has(alt.toLowerCase())) {
+                            seenTranslations.add(alt.toLowerCase());
+                            optionsHtml += `
+                                <div class="translation-option pons-option" data-source="PONS" data-translation="${alt}">
+                                    <span class="source-badge pons-badge">PONS</span>
+                                    <span class="translation-text">${alt}</span>
+                                </div>
+                            `;
+                        }
+                    });
+                } else {
+                    // For other services, show as single option (skip if already seen)
+                    if (!seenTranslations.has(translation.toLowerCase())) {
+                        seenTranslations.add(translation.toLowerCase());
+                        optionsHtml += `
+                            <div class="translation-option" data-source="${sourceKey}" data-translation="${translation}">
+                                <span class="source-badge">${sourceKey}</span>
+                                <span class="translation-text">${translation}</span>
+                            </div>
+                        `;
+                    }
+                }
             }
 
             card.innerHTML = `
@@ -241,16 +429,25 @@
                 </div>
                 <div class="card-content">
                     ${optionsHtml}
+                    <div class="custom-input-section">
+                        <div class="custom-input-wrapper">
+                            <input type="text" class="custom-translation-input" data-lang="${lang}" placeholder="Eigene Eingabe...">
+                            <button class="custom-input-btn" data-lang="${lang}" title="Eigene Eingabe verwenden">✓</button>
+                        </div>
+                    </div>
                 </div>
             `;
 
-            // Add click handlers
+            // Add click handlers for translation options
             card.querySelectorAll('.translation-option').forEach(option => {
                 option.addEventListener('click', () => {
                     // Remove previous selection in this card
                     card.querySelectorAll('.translation-option').forEach(opt => {
                         opt.classList.remove('selected');
                     });
+                    // Clear custom input selection
+                    card.querySelector('.custom-input-wrapper').classList.remove('selected');
+                    card.querySelector('.custom-translation-input').classList.remove('selected');
 
                     // Select this option
                     option.classList.add('selected');
@@ -258,6 +455,38 @@
 
                     checkAndSave();
                 });
+            });
+
+            // Add handler for custom input button
+            const customBtn = card.querySelector('.custom-input-btn');
+            const customInput = card.querySelector('.custom-translation-input');
+
+            customBtn.addEventListener('click', () => {
+                const customValue = customInput.value.trim();
+                if (!customValue) {
+                    alert('Bitte gib einen Text ein');
+                    return;
+                }
+
+                // Remove previous selection in this card
+                card.querySelectorAll('.translation-option').forEach(opt => {
+                    opt.classList.remove('selected');
+                });
+
+                // Mark custom input as selected
+                card.querySelector('.custom-input-wrapper').classList.add('selected');
+                customInput.classList.add('selected');
+
+                selections[lang] = customValue;
+                checkAndSave();
+            });
+
+            // Allow Enter key in custom input
+            customInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    customBtn.click();
+                }
             });
 
             translationsContainer.appendChild(card);
@@ -292,6 +521,21 @@
                 }
 
                 renderTranslations(data);
+
+                // Show AI explanation if available
+                if (data.ai_explanation && data.ai_explanation.trim()) {
+                    const isLimit = data.ai_explanation.startsWith('[LIMIT]');
+                    if (isLimit) {
+                        aiExplanationContent.textContent = data.ai_explanation.replace('[LIMIT] ', '');
+                        aiExplanationBox.classList.add('limit-reached');
+                    } else {
+                        aiExplanationContent.textContent = data.ai_explanation;
+                        aiExplanationBox.classList.remove('limit-reached');
+                    }
+                    aiExplanationBox.style.display = 'block';
+                } else {
+                    aiExplanationBox.style.display = 'none';
+                }
             } else {
                 alert('Translation failed. Please try again.');
             }

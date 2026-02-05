@@ -11,7 +11,7 @@ from openpyxl import Workbook
 from pydantic import BaseModel
 
 from database import engine, get_db, Base
-from models import User, GlossaryEntry
+from models import User, Glossary, GlossaryEntry
 from auth import (
     create_access_token,
     create_user,
@@ -42,6 +42,11 @@ class SaveGlossaryRequest(BaseModel):
     german: str
     polish: str
     english: str
+    glossary_id: Optional[int] = None
+
+
+class CreateGlossaryRequest(BaseModel):
+    name: str
 
 
 # ==================== Auth Routes ====================
@@ -197,6 +202,92 @@ async def translate(
 # ==================== Glossary Routes ====================
 
 
+def get_or_create_default_glossary(db: Session, user_id: int) -> Glossary:
+    """Get user's default glossary or create one if it doesn't exist."""
+    default = db.query(Glossary).filter(
+        Glossary.user_id == user_id,
+        Glossary.is_default == True
+    ).first()
+
+    if not default:
+        default = Glossary(
+            user_id=user_id,
+            name="Hauptglossar",
+            is_default=True
+        )
+        db.add(default)
+        db.commit()
+        db.refresh(default)
+
+    return default
+
+
+@app.get("/glossaries")
+async def list_glossaries(request: Request, db: Session = Depends(get_db)):
+    """List all glossaries for the current user."""
+    user = await get_current_user(request, db)
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    # Ensure default glossary exists
+    get_or_create_default_glossary(db, user.id)
+
+    glossaries = db.query(Glossary).filter(
+        Glossary.user_id == user.id
+    ).order_by(Glossary.is_default.desc(), Glossary.name).all()
+
+    return [
+        {
+            "id": g.id,
+            "name": g.name,
+            "is_default": g.is_default,
+            "entry_count": len(g.entries)
+        }
+        for g in glossaries
+    ]
+
+
+@app.post("/glossaries")
+async def create_glossary(
+    request: Request,
+    glossary_request: CreateGlossaryRequest,
+    db: Session = Depends(get_db),
+):
+    """Create a new glossary."""
+    user = await get_current_user(request, db)
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    name = glossary_request.name.strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="Name is required")
+
+    # Check if glossary with same name exists
+    existing = db.query(Glossary).filter(
+        Glossary.user_id == user.id,
+        Glossary.name == name
+    ).first()
+
+    if existing:
+        raise HTTPException(status_code=400, detail="Glossary with this name already exists")
+
+    glossary = Glossary(
+        user_id=user.id,
+        name=name,
+        is_default=False
+    )
+    db.add(glossary)
+    db.commit()
+    db.refresh(glossary)
+
+    return {
+        "id": glossary.id,
+        "name": glossary.name,
+        "is_default": glossary.is_default,
+        "entry_count": 0
+    }
+
+
 @app.post("/glossary/save")
 async def save_to_glossary(
     request: Request,
@@ -207,8 +298,20 @@ async def save_to_glossary(
     if not user:
         raise HTTPException(status_code=401, detail="Not authenticated")
 
+    # Get glossary (use specified or default)
+    if glossary_request.glossary_id:
+        glossary = db.query(Glossary).filter(
+            Glossary.id == glossary_request.glossary_id,
+            Glossary.user_id == user.id
+        ).first()
+        if not glossary:
+            raise HTTPException(status_code=404, detail="Glossary not found")
+    else:
+        glossary = get_or_create_default_glossary(db, user.id)
+
     entry = GlossaryEntry(
         user_id=user.id,
+        glossary_id=glossary.id,
         spanish=glossary_request.spanish,
         german=glossary_request.german,
         polish=glossary_request.polish,
@@ -217,19 +320,34 @@ async def save_to_glossary(
     db.add(entry)
     db.commit()
 
-    return {"success": True, "message": "Entry saved to glossary"}
+    return {"success": True, "message": f"Entry saved to {glossary.name}"}
 
 
 @app.get("/glossary/export")
-async def export_glossary(request: Request, db: Session = Depends(get_db)):
+async def export_glossary(
+    request: Request,
+    glossary_id: Optional[int] = None,
+    db: Session = Depends(get_db)
+):
     user = await get_current_user(request, db)
     if not user:
         return RedirectResponse(url="/login", status_code=303)
 
-    # Get all glossary entries for the user
+    # Get specific glossary or default
+    if glossary_id:
+        glossary = db.query(Glossary).filter(
+            Glossary.id == glossary_id,
+            Glossary.user_id == user.id
+        ).first()
+        if not glossary:
+            raise HTTPException(status_code=404, detail="Glossary not found")
+    else:
+        glossary = get_or_create_default_glossary(db, user.id)
+
+    # Get entries for the glossary
     entries = (
         db.query(GlossaryEntry)
-        .filter(GlossaryEntry.user_id == user.id)
+        .filter(GlossaryEntry.glossary_id == glossary.id)
         .order_by(GlossaryEntry.created_at.desc())
         .all()
     )
@@ -237,7 +355,7 @@ async def export_glossary(request: Request, db: Session = Depends(get_db)):
     # Create Excel workbook
     wb = Workbook()
     ws = wb.active
-    ws.title = "Glossary"
+    ws.title = glossary.name[:31]  # Excel sheet names max 31 chars
 
     # Header row
     headers = ["Spanish", "German", "Polish", "English", "Created At"]
@@ -271,10 +389,12 @@ async def export_glossary(request: Request, db: Session = Depends(get_db)):
     wb.save(output)
     output.seek(0)
 
+    filename = f"{glossary.name}_{user.username}.xlsx".replace(" ", "_")
+
     return StreamingResponse(
         output,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": f"attachment; filename=glossary_{user.username}.xlsx"},
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
     )
 
 
