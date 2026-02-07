@@ -25,6 +25,21 @@ from translator import translate_to_all_languages
 # Create database tables
 Base.metadata.create_all(bind=engine)
 
+# Migrate: add new language columns if they don't exist
+def migrate_add_language_columns():
+    import sqlite3
+    conn = sqlite3.connect("glossary.db")
+    cursor = conn.cursor()
+    cursor.execute("PRAGMA table_info(glossary_entries)")
+    existing_cols = {row[1] for row in cursor.fetchall()}
+    for col in ["french", "italian", "portuguese", "dutch", "russian"]:
+        if col not in existing_cols:
+            cursor.execute(f"ALTER TABLE glossary_entries ADD COLUMN {col} VARCHAR(500)")
+    conn.commit()
+    conn.close()
+
+migrate_add_language_columns()
+
 app = FastAPI(title="Polyglot Translator")
 
 # Mount static files and templates
@@ -45,12 +60,19 @@ class SaveGlossaryRequest(BaseModel):
     german: Optional[str] = None
     polish: Optional[str] = None
     english: Optional[str] = None
+    french: Optional[str] = None
+    italian: Optional[str] = None
+    portuguese: Optional[str] = None
+    dutch: Optional[str] = None
+    russian: Optional[str] = None
     glossary_id: Optional[int] = None
-    # Slot-based entries: slot1, slot2, slot3, slot4 with language_config
+    # Slot-based entries with language_config
     slot1: Optional[str] = None
     slot2: Optional[str] = None
     slot3: Optional[str] = None
     slot4: Optional[str] = None
+    slot5: Optional[str] = None
+    slot6: Optional[str] = None
     language_config: Optional[list] = None  # e.g., ["german", "spanish", "french", "english"]
 
 
@@ -324,33 +346,28 @@ async def save_to_glossary(
     else:
         glossary = get_or_create_default_glossary(db, user.id)
 
+    ALL_LANG_COLS = ["spanish", "german", "polish", "english", "french", "italian", "portuguese", "dutch", "russian"]
+
     # Handle slot-based format with language_config
     if glossary_request.language_config and glossary_request.slot1 is not None:
-        # Map slots to database columns based on language_config
         lang_to_slot = {}
         slots = [glossary_request.slot1, glossary_request.slot2,
-                 glossary_request.slot3, glossary_request.slot4]
+                 glossary_request.slot3, glossary_request.slot4,
+                 glossary_request.slot5, glossary_request.slot6]
         for i, lang in enumerate(glossary_request.language_config):
-            if i < len(slots):
+            if i < len(slots) and slots[i] is not None:
                 lang_to_slot[lang] = slots[i]
 
         entry = GlossaryEntry(
             user_id=user.id,
             glossary_id=glossary.id,
-            spanish=lang_to_slot.get("spanish", ""),
-            german=lang_to_slot.get("german", ""),
-            polish=lang_to_slot.get("polish", ""),
-            english=lang_to_slot.get("english", ""),
+            **{col: lang_to_slot.get(col, "") for col in ALL_LANG_COLS}
         )
     else:
-        # Legacy format with direct column names
         entry = GlossaryEntry(
             user_id=user.id,
             glossary_id=glossary.id,
-            spanish=glossary_request.spanish or "",
-            german=glossary_request.german or "",
-            polish=glossary_request.polish or "",
-            english=glossary_request.english or "",
+            **{col: getattr(glossary_request, col) or "" for col in ALL_LANG_COLS}
         )
     db.add(entry)
     db.commit()
@@ -389,20 +406,11 @@ async def get_recent_entries(
         .all()
     )
 
-    # Return all 4 language columns - frontend will display based on settings
+    ALL_LANG_COLS = ["spanish", "german", "polish", "english", "french", "italian", "portuguese", "dutch", "russian"]
     return [
         {
-            "spanish": e.spanish,
-            "german": e.german,
-            "polish": e.polish,
-            "english": e.english,
-            # Include all for dynamic display
-            "entries": {
-                "spanish": e.spanish,
-                "german": e.german,
-                "polish": e.polish,
-                "english": e.english,
-            }
+            **{col: getattr(e, col) for col in ALL_LANG_COLS},
+            "entries": {col: getattr(e, col) for col in ALL_LANG_COLS}
         }
         for e in entries
     ]
@@ -442,19 +450,26 @@ async def export_glossary(
     ws = wb.active
     ws.title = glossary.name[:31]  # Excel sheet names max 31 chars
 
+    # Determine which language columns have data
+    ALL_LANG_COLS = ["spanish", "german", "polish", "english", "french", "italian", "portuguese", "dutch", "russian"]
+    active_cols = []
+    for col in ALL_LANG_COLS:
+        if any(getattr(e, col) for e in entries):
+            active_cols.append(col)
+    if not active_cols:
+        active_cols = ALL_LANG_COLS[:4]
+
     # Header row
-    headers = ["Spanish", "German", "Polish", "English", "Created At"]
-    for col, header in enumerate(headers, 1):
-        cell = ws.cell(row=1, column=col, value=header)
+    headers = [col.capitalize() for col in active_cols] + ["Created At"]
+    for col_idx, header in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col_idx, value=header)
         cell.font = cell.font.copy(bold=True)
 
     # Data rows
     for row, entry in enumerate(entries, 2):
-        ws.cell(row=row, column=1, value=entry.spanish)
-        ws.cell(row=row, column=2, value=entry.german)
-        ws.cell(row=row, column=3, value=entry.polish)
-        ws.cell(row=row, column=4, value=entry.english)
-        ws.cell(row=row, column=5, value=entry.created_at.strftime("%Y-%m-%d %H:%M"))
+        for col_idx, col in enumerate(active_cols, 1):
+            ws.cell(row=row, column=col_idx, value=getattr(entry, col))
+        ws.cell(row=row, column=len(active_cols) + 1, value=entry.created_at.strftime("%Y-%m-%d %H:%M"))
 
     # Adjust column widths
     for col in ws.columns:

@@ -106,7 +106,7 @@
                 <div class="settings-body">
                     <div class="settings-section">
                         <h3>SPRACHEN</h3>
-                        <p class="settings-hint">Wähle 4 Sprachen in gewünschter Reihenfolge</p>
+                        <p class="settings-hint">Wähle 2–6 Sprachen in gewünschter Reihenfolge</p>
                         <div class="settings-languages">
                             <div class="settings-language-row">
                                 <span class="lang-number">1.</span>
@@ -123,6 +123,14 @@
                             <div class="settings-language-row">
                                 <span class="lang-number">4.</span>
                                 <select id="settings-lang-4" class="settings-language-select"></select>
+                            </div>
+                            <div class="settings-language-row">
+                                <span class="lang-number">5.</span>
+                                <select id="settings-lang-5" class="settings-language-select"></select>
+                            </div>
+                            <div class="settings-language-row">
+                                <span class="lang-number">6.</span>
+                                <select id="settings-lang-6" class="settings-language-select"></select>
                             </div>
                         </div>
                     </div>
@@ -194,6 +202,7 @@
         </div>
 
         <div id="translations-container" class="translations-grid-3" style="display: none;">
+
             <!-- Translation boxes will be dynamically generated -->
         </div>
 
@@ -247,9 +256,9 @@
 
     let currentData = null;
     let recentSaves = [];
-    let selectedLanguage = localStorage.getItem('selectedLanguage') || 'german';
-    // Reset if old 'auto' value is stored
-    if (selectedLanguage === 'auto') selectedLanguage = 'german';
+    let selectedLanguage = localStorage.getItem('selectedLanguage') || (appSettings.languages.length > 0 ? appSettings.languages[0] : 'german');
+    // Reset if old 'auto' value is stored or language not in current settings
+    if (selectedLanguage === 'auto') selectedLanguage = appSettings.languages[0] || 'german';
     let selections = {};
     let glossaries = [];
     let selectedGlossaryId = localStorage.getItem('selectedGlossaryId') || null;
@@ -269,7 +278,7 @@
 
     // Default settings
     const defaultSettings = {
-        languages: ['german', 'spanish', 'polish', 'english'],
+        languages: [],
         translationServices: {
             'DeepL': true,
             'PONS': true,
@@ -339,15 +348,19 @@
     const settingsSave = document.getElementById('settings-save');
 
     function populateLanguageSelects() {
-        const selects = [
-            document.getElementById('settings-lang-1'),
-            document.getElementById('settings-lang-2'),
-            document.getElementById('settings-lang-3'),
-            document.getElementById('settings-lang-4')
-        ];
+        const selects = [];
+        for (let i = 1; i <= 6; i++) {
+            selects.push(document.getElementById('settings-lang-' + i));
+        }
 
         selects.forEach((select, index) => {
             select.innerHTML = '';
+            // Empty first option
+            const emptyOpt = document.createElement('option');
+            emptyOpt.value = '';
+            emptyOpt.textContent = '— Nicht belegt —';
+            select.appendChild(emptyOpt);
+
             Object.entries(allLanguages).forEach(([key, lang]) => {
                 const option = document.createElement('option');
                 option.value = key;
@@ -357,6 +370,8 @@
             // Set current value from settings
             if (appSettings.languages[index]) {
                 select.value = appSettings.languages[index];
+            } else {
+                select.value = '';
             }
         });
     }
@@ -376,22 +391,32 @@
     }
 
     function closeSettingsModal() {
+        // Prevent closing if no languages are configured yet
+        if (appSettings.languages.length < 2) {
+            alert('Bitte wähle mindestens 2 Sprachen aus, bevor du fortfährst.');
+            return;
+        }
         settingsModal.style.display = 'none';
     }
 
     function saveSettings() {
-        // Get selected languages
-        const newLanguages = [
-            document.getElementById('settings-lang-1').value,
-            document.getElementById('settings-lang-2').value,
-            document.getElementById('settings-lang-3').value,
-            document.getElementById('settings-lang-4').value
-        ];
+        // Collect non-empty language selections
+        const newLanguages = [];
+        for (let i = 1; i <= 6; i++) {
+            const val = document.getElementById('settings-lang-' + i).value;
+            if (val) newLanguages.push(val);
+        }
+
+        // Require minimum 2
+        if (newLanguages.length < 2) {
+            alert('Bitte wähle mindestens 2 Sprachen aus.');
+            return;
+        }
 
         // Check for duplicates
         const uniqueLangs = new Set(newLanguages);
-        if (uniqueLangs.size !== 4) {
-            alert('Bitte wähle 4 verschiedene Sprachen aus.');
+        if (uniqueLangs.size !== newLanguages.length) {
+            alert('Bitte wähle verschiedene Sprachen aus (keine Duplikate).');
             return;
         }
 
@@ -500,6 +525,11 @@
     // Initialize dropdowns on load
     updateLanguageDropdowns();
     updateCameraLangButtons();
+
+    // Auto-open settings on first launch (no saved settings)
+    if (!localStorage.getItem('glossariumSettings')) {
+        setTimeout(() => openSettingsModal(), 300);
+    }
 
     function updateLanguageDisplay(lang) {
         const langData = allLanguages[lang];
@@ -742,7 +772,7 @@
 
     async function saveToGlossary() {
         // Build slot-based save data using current language settings
-        const slots = appSettings.languages.map((lang, i) => {
+        const slots = appSettings.languages.map((lang) => {
             if (lang === currentData.source_language) {
                 return currentData.source_text;
             }
@@ -750,19 +780,13 @@
         });
 
         const saveData = {
-            slot1: slots[0],
-            slot2: slots[1],
-            slot3: slots[2],
-            slot4: slots[3],
             language_config: appSettings.languages,
             glossary_id: selectedGlossaryId ? parseInt(selectedGlossaryId) : null
         };
 
-        // Also include direct column names for backward compatibility
-        appSettings.languages.forEach((lang, i) => {
-            if (['spanish', 'german', 'polish', 'english'].includes(lang)) {
-                saveData[lang] = slots[i];
-            }
+        // Set slot1 through slot6
+        slots.forEach((val, i) => {
+            saveData['slot' + (i + 1)] = val;
         });
 
         try {
@@ -796,6 +820,10 @@
         selectionStatus.style.display = 'block';
 
         const targetLangs = Object.keys(data.translations);
+        // Set dynamic grid class based on target count (1-5)
+        const gridCount = Math.min(Math.max(targetLangs.length, 1), 5);
+        translationsContainer.className = 'translations-grid-' + gridCount;
+
         selectionCount.textContent = `0/${targetLangs.length}`;
 
         for (const [lang, sources] of Object.entries(data.translations)) {

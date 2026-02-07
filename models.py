@@ -39,6 +39,11 @@ class GlossaryEntry(Base):
     german = Column(String(500))
     polish = Column(String(500))
     english = Column(String(500))
+    french = Column(String(500))
+    italian = Column(String(500))
+    portuguese = Column(String(500))
+    dutch = Column(String(500))
+    russian = Column(String(500))
     created_at = Column(DateTime, default=datetime.utcnow)
 
     user = relationship("User", back_populates="glossary_entries")
