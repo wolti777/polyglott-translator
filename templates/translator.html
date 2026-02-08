@@ -10,6 +10,8 @@
             <h1>Glossarium</h1>
         </div>
         <div class="header-actions">
+            <a href="/glossary-list" class="btn btn-outline export-btn" title="Vokabelliste">Liste</a>
+            <a href="/vocab-test" class="btn btn-outline export-btn" title="Vokabeltest">Test</a>
             <button id="settings-btn" class="btn btn-outline settings-btn" title="Einstellungen">⚙️</button>
             <a href="#" id="export-glossary-btn" class="btn btn-outline export-btn" title="Glossar exportieren">Export</a>
             <div class="glossary-wrapper">
@@ -254,14 +256,9 @@
     const recentGlossaryName = document.getElementById('recent-glossary-name');
     const exportGlossaryName = document.getElementById('export-glossary-name');
 
-    let currentData = null;
-    let recentSaves = [];
-    let selectedLanguage = localStorage.getItem('selectedLanguage') || (appSettings.languages.length > 0 ? appSettings.languages[0] : 'german');
-    // Reset if old 'auto' value is stored or language not in current settings
-    if (selectedLanguage === 'auto') selectedLanguage = appSettings.languages[0] || 'german';
-    let selections = {};
-    let glossaries = [];
-    let selectedGlossaryId = localStorage.getItem('selectedGlossaryId') || null;
+    // Per-user storage keys
+    const currentUsername = '{{ user.username }}';
+    const storageKey = (key) => key + '_' + currentUsername;
 
     // All available languages
     const allLanguages = {
@@ -291,9 +288,9 @@
         }
     };
 
-    // Load settings from localStorage
+    // Load settings from localStorage (per-user)
     function loadSettings() {
-        const saved = localStorage.getItem('glossariumSettings');
+        const saved = localStorage.getItem(storageKey('glossariumSettings'));
         if (saved) {
             try {
                 return JSON.parse(saved);
@@ -304,13 +301,21 @@
         return { ...defaultSettings };
     }
 
-    // Save settings to localStorage
+    // Save settings to localStorage (per-user)
     function saveSettingsToStorage(settings) {
-        localStorage.setItem('glossariumSettings', JSON.stringify(settings));
+        localStorage.setItem(storageKey('glossariumSettings'), JSON.stringify(settings));
     }
 
     // Current settings
     let appSettings = loadSettings();
+
+    let currentData = null;
+    let recentSaves = [];
+    let selectedLanguage = localStorage.getItem(storageKey('selectedLanguage')) || (appSettings.languages.length > 0 ? appSettings.languages[0] : 'german');
+    if (selectedLanguage === 'auto') selectedLanguage = appSettings.languages[0] || 'german';
+    let selections = {};
+    let glossaries = [];
+    let selectedGlossaryId = localStorage.getItem(storageKey('selectedGlossaryId')) || null;
 
     // Dynamic language mappings based on settings
     const languageNames = {};
@@ -391,12 +396,8 @@
     }
 
     function closeSettingsModal() {
-        // Prevent closing if no languages are configured yet
-        if (appSettings.languages.length < 2) {
-            alert('Bitte wähle mindestens 2 Sprachen aus, bevor du fortfährst.');
-            return;
-        }
         settingsModal.style.display = 'none';
+        updateConfigWarning();
     }
 
     function saveSettings() {
@@ -476,7 +477,7 @@
                 option.addEventListener('click', (e) => {
                     e.stopPropagation();
                     selectedLanguage = lang;
-                    localStorage.setItem('selectedLanguage', selectedLanguage);
+                    localStorage.setItem(storageKey('selectedLanguage'), selectedLanguage);
                     updateLanguageDisplay(selectedLanguage);
                     dropdown.classList.remove('show');
                 });
@@ -487,7 +488,7 @@
         // Update selected language if it's not in the new list
         if (!appSettings.languages.includes(selectedLanguage)) {
             selectedLanguage = appSettings.languages[0];
-            localStorage.setItem('selectedLanguage', selectedLanguage);
+            localStorage.setItem(storageKey('selectedLanguage'), selectedLanguage);
         }
         updateLanguageDisplay(selectedLanguage);
     }
@@ -508,7 +509,7 @@
                 btn.addEventListener('click', () => {
                     if (selectedWordsList.length > 0) {
                         selectedLanguage = lang;
-                        localStorage.setItem('selectedLanguage', selectedLanguage);
+                        localStorage.setItem(storageKey('selectedLanguage'), selectedLanguage);
                         updateLanguageDisplay(selectedLanguage);
                         inputText.value = selectedWordsList.join(' ');
                         closeCamera();
@@ -526,10 +527,33 @@
     updateLanguageDropdowns();
     updateCameraLangButtons();
 
-    // Auto-open settings on first launch (no saved settings)
-    if (!localStorage.getItem('glossariumSettings')) {
+    // Show/hide config warning and disable translate when no languages configured
+    function updateConfigWarning() {
+        const needsConfig = appSettings.languages.length < 2;
+        translateBtn.disabled = needsConfig;
+        let warning = document.getElementById('config-warning');
+        if (needsConfig) {
+            if (!warning) {
+                warning = document.createElement('div');
+                warning.id = 'config-warning';
+                warning.style.cssText = 'text-align:center;padding:1.5rem;background:var(--card-bg);border-radius:0.75rem;box-shadow:var(--shadow);color:var(--text-muted);';
+                warning.innerHTML = 'Bitte zuerst in den <a href="#" id="config-warning-link" style="color:var(--primary-color);font-weight:600;">⚙️ Einstellungen</a> mindestens 2 Sprachen auswählen.';
+                translationsContainer.parentNode.insertBefore(warning, translationsContainer);
+                warning.querySelector('#config-warning-link').addEventListener('click', (e) => {
+                    e.preventDefault();
+                    openSettingsModal();
+                });
+            }
+        } else if (warning) {
+            warning.remove();
+        }
+    }
+
+    // Auto-open settings on first launch (no saved settings or too few languages)
+    if (!localStorage.getItem(storageKey('glossariumSettings')) || appSettings.languages.length < 2) {
         setTimeout(() => openSettingsModal(), 300);
     }
+    updateConfigWarning();
 
     function updateLanguageDisplay(lang) {
         const langData = allLanguages[lang];
@@ -585,7 +609,7 @@
         if (defaultGlossary) {
             selectedGlossaryId = defaultGlossary.id;
             updateGlossaryDisplayNames(defaultGlossary.name);
-            localStorage.setItem('selectedGlossaryId', selectedGlossaryId);
+            localStorage.setItem(storageKey('selectedGlossaryId'), selectedGlossaryId);
         }
     }
 
@@ -609,7 +633,7 @@
                 e.stopPropagation();
                 selectedGlossaryId = g.id;
                 updateGlossaryDisplayNames(g.name);
-                localStorage.setItem('selectedGlossaryId', selectedGlossaryId);
+                localStorage.setItem(storageKey('selectedGlossaryId'), selectedGlossaryId);
                 glossaryDropdown.classList.remove('show');
                 renderGlossaryList();
                 loadRecentEntries(); // Reload entries for new glossary
@@ -646,7 +670,7 @@
                 // Auto-select the new glossary
                 selectedGlossaryId = newGlossary.id;
                 updateGlossaryDisplayNames(newGlossary.name);
-                localStorage.setItem('selectedGlossaryId', selectedGlossaryId);
+                localStorage.setItem(storageKey('selectedGlossaryId'), selectedGlossaryId);
 
                 renderGlossaryList();
             } else {
@@ -977,7 +1001,7 @@
                 // Update selected language
                 if (data.source_language && data.source_language !== 'auto') {
                     selectedLanguage = data.source_language;
-                    localStorage.setItem('selectedLanguage', selectedLanguage);
+                    localStorage.setItem(storageKey('selectedLanguage'), selectedLanguage);
                     updateLanguageDisplay(selectedLanguage);
                 }
 

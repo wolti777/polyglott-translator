@@ -1,0 +1,338 @@
+{% extends "base.html" %}
+
+{% block title %}Vokabeltest{% endblock %}
+
+{% block content %}
+<div class="app-container">
+    <header class="app-header">
+        <div class="logo">
+            <span class="logo-icon">📝</span>
+            <h1>Vokabeltest</h1>
+        </div>
+        <div class="header-actions">
+            <a href="/translator" class="btn btn-outline export-btn">Glossar</a>
+            <a href="/glossary-list" class="btn btn-outline export-btn">Liste</a>
+        </div>
+    </header>
+
+    <main class="translator-main">
+        <div class="vocab-config">
+            <div class="vocab-config-row">
+                <div class="vocab-config-field" style="flex:1;">
+                    <label>Frage</label>
+                    <select id="question-lang" class="settings-language-select"></select>
+                </div>
+            </div>
+            <div class="vocab-config-row">
+                <div class="vocab-config-field">
+                    <label>Zeitraum</label>
+                    <div class="vocab-input-group">
+                        <input type="number" id="days-input" value="1" min="1" max="365" class="vocab-number-input">
+                        <span class="vocab-input-suffix">Tage</span>
+                    </div>
+                </div>
+                <div class="vocab-config-field">
+                    <label>Wiederholung</label>
+                    <div class="vocab-input-group">
+                        <input type="number" id="max-rate-input" value="3" min="1" max="99" class="vocab-number-input">
+                    </div>
+                </div>
+                <div class="vocab-config-field">
+                    <label>Max. Wiederholung</label>
+                    <div class="vocab-input-group">
+                        <input type="number" id="learn-limit-input" value="10" min="1" max="999" class="vocab-number-input">
+                    </div>
+                </div>
+            </div>
+            <button id="start-btn" class="btn btn-primary btn-large" style="width:100%;margin-top:0.75rem;">Test starten</button>
+        </div>
+
+        <div id="flashcard-container" style="display:none;">
+            <div class="flashcard">
+                <div class="flashcard-question">
+                    <div id="question-flag" class="flashcard-flag"></div>
+                    <div id="question-word" class="flashcard-word"></div>
+                    <div id="learning-rate-display" class="flashcard-rate"></div>
+                </div>
+                <div id="flashcard-answer" class="flashcard-answer hidden">
+                    <div class="flashcard-answer-cover" id="answer-cover">
+                        <button id="btn-wrong" class="btn vocab-overlay-btn vocab-overlay-wrong" title="Falsch">👎</button>
+                        <button id="btn-correct" class="btn vocab-overlay-btn vocab-overlay-correct" title="Richtig">👍</button>
+                    </div>
+                    <div class="flashcard-answer-content" id="answer-content">
+                        <!-- All language answers rendered here -->
+                    </div>
+                    <!-- click anywhere on revealed answer to advance -->
+                </div>
+            </div>
+
+            <div id="vocab-progress" class="vocab-progress"></div>
+        </div>
+
+        <div id="vocab-done" class="vocab-done" style="display:none;">
+            <div class="vocab-done-icon">🎉</div>
+            <div class="vocab-done-text">Alle Vokabeln gelernt!</div>
+            <button id="restart-btn" class="btn btn-primary btn-large">Nochmal</button>
+        </div>
+
+        <footer class="app-footer">
+            <a href="/logout" class="btn btn-outline">Logout</a>
+        </footer>
+    </main>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const currentUsername = '{{ user.username }}';
+    const storageKey = (key) => key + '_' + currentUsername;
+
+    const allLanguages = {
+        'german': { name: 'Deutsch', flag: '🇩🇪' },
+        'english': { name: 'English', flag: '🇬🇧' },
+        'spanish': { name: 'Español', flag: '🇪🇸' },
+        'polish': { name: 'Polski', flag: '🇵🇱' },
+        'french': { name: 'Français', flag: '🇫🇷' },
+        'italian': { name: 'Italiano', flag: '🇮🇹' },
+        'portuguese': { name: 'Português', flag: '🇵🇹' },
+        'dutch': { name: 'Nederlands', flag: '🇳🇱' },
+        'russian': { name: 'Русский', flag: '🇷🇺' },
+    };
+
+    function loadSettings() {
+        const saved = localStorage.getItem(storageKey('glossariumSettings'));
+        if (saved) {
+            try { return JSON.parse(saved); } catch (e) {}
+        }
+        return { languages: [] };
+    }
+
+    const appSettings = loadSettings();
+    const questionLangSelect = document.getElementById('question-lang');
+    const daysInput = document.getElementById('days-input');
+    const maxRateInput = document.getElementById('max-rate-input');
+    const learnLimitInput = document.getElementById('learn-limit-input');
+    const startBtn = document.getElementById('start-btn');
+    const flashcardContainer = document.getElementById('flashcard-container');
+    const flashcardAnswer = document.getElementById('flashcard-answer');
+    const answerContent = document.getElementById('answer-content');
+    const questionWord = document.getElementById('question-word');
+    const questionFlag = document.getElementById('question-flag');
+    const learningRateDisplay = document.getElementById('learning-rate-display');
+    const vocabProgress = document.getElementById('vocab-progress');
+    const vocabDone = document.getElementById('vocab-done');
+    const btnWrong = document.getElementById('btn-wrong');
+    const btnCorrect = document.getElementById('btn-correct');
+    const restartBtn = document.getElementById('restart-btn');
+    let autoAdvanceTimer = null;
+
+    let currentEntryId = null;
+    let glossaryId = localStorage.getItem(storageKey('selectedGlossaryId')) || null;
+    let vocabQueue = [];
+    let totalInRound = 0;
+
+    // Populate question language dropdown
+    function populateDropdown() {
+        questionLangSelect.innerHTML = '';
+        appSettings.languages.forEach(lang => {
+            const langData = allLanguages[lang];
+            if (langData) {
+                const option = document.createElement('option');
+                option.value = lang;
+                option.textContent = `${langData.flag} ${langData.name}`;
+                questionLangSelect.appendChild(option);
+            }
+        });
+        if (appSettings.languages.length >= 1) {
+            questionLangSelect.value = appSettings.languages[0];
+        }
+    }
+
+    populateDropdown();
+
+    // Get answer languages (all configured except question)
+    function getAnswerLangs() {
+        return appSettings.languages.filter(l => l !== questionLangSelect.value);
+    }
+
+    // Shuffle array in place (Fisher-Yates)
+    function shuffle(arr) {
+        for (let i = arr.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [arr[i], arr[j]] = [arr[j], arr[i]];
+        }
+        return arr;
+    }
+
+    // Fetch all entries and build shuffled queue
+    async function fetchEntries() {
+        const qLang = questionLangSelect.value;
+        const aLangs = getAnswerLangs();
+        const days = daysInput.value || 1;
+        const maxRate = maxRateInput.value || 3;
+        const learnLimit = learnLimitInput.value || 10;
+
+        const params = new URLSearchParams({
+            question_lang: qLang,
+            answer_langs: aLangs.join(','),
+            days: days,
+            max_rate: maxRate,
+            learn_limit: learnLimit,
+        });
+        if (glossaryId) params.append('glossary_id', glossaryId);
+
+        const response = await fetch('/vocab-test/entries?' + params);
+        if (!response.ok) throw new Error('Fetch failed');
+        const data = await response.json();
+        return data.entries || [];
+    }
+
+    // Start test: reset learning_rate, fetch all entries, shuffle
+    async function startTest() {
+        const days = daysInput.value || 1;
+        const learnLimit = learnLimitInput.value || 10;
+
+        try {
+            await fetch('/vocab-test/start', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    glossary_id: glossaryId ? parseInt(glossaryId) : null,
+                    days: parseInt(days),
+                    learn_limit: parseInt(learnLimit),
+                }),
+            });
+        } catch (error) {
+            console.error('Error starting test:', error);
+        }
+
+        await loadNewRound();
+    }
+
+    // Load a new round: fetch entries, shuffle, show first
+    async function loadNewRound() {
+        try {
+            const entries = await fetchEntries();
+            if (entries.length === 0) {
+                flashcardContainer.style.display = 'none';
+                vocabDone.style.display = 'flex';
+                return;
+            }
+            vocabQueue = shuffle(entries);
+            totalInRound = vocabQueue.length;
+            showNext();
+        } catch (error) {
+            console.error('Error loading entries:', error);
+        }
+    }
+
+    // Show next card from queue
+    function showNext() {
+        if (vocabQueue.length === 0) {
+            // Round done — fetch new round (some may have graduated)
+            loadNewRound();
+            return;
+        }
+
+        const data = vocabQueue.shift();
+        const qLang = questionLangSelect.value;
+        const aLangs = getAnswerLangs();
+        const maxRate = parseInt(maxRateInput.value || 3);
+
+        currentEntryId = data.id;
+        vocabDone.style.display = 'none';
+        flashcardContainer.style.display = 'block';
+
+        // Show question
+        const qData = allLanguages[qLang];
+        questionFlag.textContent = qData ? qData.flag : '';
+        questionWord.textContent = data.question;
+
+        // Learning rate display
+        const rate = data.learning_rate || 0;
+        learningRateDisplay.textContent = '★'.repeat(rate) + '☆'.repeat(Math.max(0, maxRate - rate));
+
+        // Build answer content: all languages
+        answerContent.innerHTML = '';
+        for (const lang of aLangs) {
+            const langData = allLanguages[lang];
+            const val = data.answers[lang];
+            if (langData && val) {
+                const row = document.createElement('div');
+                row.className = 'flashcard-answer-row';
+                row.innerHTML = `<span class="flashcard-answer-flag">${langData.flag}</span><span class="flashcard-answer-word">${val}</span>`;
+                answerContent.appendChild(row);
+            }
+        }
+
+        // Reset card state
+        if (autoAdvanceTimer) { clearTimeout(autoAdvanceTimer); autoAdvanceTimer = null; }
+        flashcardAnswer.classList.add('hidden');
+        flashcardAnswer.classList.remove('revealed');
+        btnWrong.disabled = false;
+        btnCorrect.disabled = false;
+
+        // Progress
+        vocabProgress.textContent = `${vocabQueue.length + 1} von ${totalInRound} Vokabeln`;
+    }
+
+    // Reveal answer helper
+    function revealAnswer() {
+        flashcardAnswer.classList.remove('hidden');
+        flashcardAnswer.classList.add('revealed');
+    }
+
+    // Submit answer to server
+    async function sendAnswer(correct) {
+        if (!currentEntryId) return;
+        try {
+            await fetch('/vocab-test/answer', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ entry_id: currentEntryId, correct: correct }),
+            });
+        } catch (error) {
+            console.error('Error submitting answer:', error);
+        }
+    }
+
+    // Advance to next (used by timer and click)
+    function advance() {
+        if (autoAdvanceTimer) { clearTimeout(autoAdvanceTimer); autoAdvanceTimer = null; }
+        showNext();
+    }
+
+    // Green button: correct → reveal 4s → auto-advance
+    btnCorrect.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        btnWrong.disabled = true;
+        btnCorrect.disabled = true;
+        await sendAnswer(true);
+        revealAnswer();
+        autoAdvanceTimer = setTimeout(advance, 4000);
+    });
+
+    // Red button: wrong → reveal → 6s timer OR click to advance
+    btnWrong.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        btnWrong.disabled = true;
+        btnCorrect.disabled = true;
+        await sendAnswer(false);
+        revealAnswer();
+        autoAdvanceTimer = setTimeout(advance, 6000);
+    });
+
+    // Click on revealed answer to advance immediately
+    flashcardAnswer.addEventListener('click', () => {
+        if (flashcardAnswer.classList.contains('revealed')) {
+            advance();
+        }
+    });
+
+    // Start button
+    startBtn.addEventListener('click', startTest);
+
+    // Restart = same test (reset learning_rate again, fetch first)
+    restartBtn.addEventListener('click', startTest);
+</script>
+{% endblock %}

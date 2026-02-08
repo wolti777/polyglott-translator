@@ -1,0 +1,252 @@
+{% extends "base.html" %}
+
+{% block title %}Vokabelliste{% endblock %}
+
+{% block content %}
+<div class="app-container">
+    <header class="app-header">
+        <div class="logo">
+            <h1>Vokabelliste</h1>
+        </div>
+        <div class="header-actions">
+            <a href="/translator" class="btn btn-outline export-btn">Glossar</a>
+            <a href="/vocab-test" class="btn btn-outline export-btn">Test</a>
+        </div>
+    </header>
+
+    <main class="translator-main">
+        <div class="list-header">
+            <select id="glossary-select" class="list-select"></select>
+            <span id="entry-count" class="list-count"></span>
+        </div>
+
+        <div id="entries-container" class="entries-list">
+            <div class="entries-loading">Laden...</div>
+        </div>
+
+        <div id="entries-empty" class="entries-empty" style="display:none;">
+            Keine Eintr&auml;ge vorhanden.
+        </div>
+
+        <footer class="app-footer">
+            <a href="/logout" class="btn btn-outline">Logout</a>
+        </footer>
+    </main>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const currentUsername = '{{ user.username }}';
+    const storageKey = (key) => key + '_' + currentUsername;
+
+    const allLanguages = {
+        'german': { name: 'Deutsch', flag: '\u{1F1E9}\u{1F1EA}' },
+        'english': { name: 'English', flag: '\u{1F1EC}\u{1F1E7}' },
+        'spanish': { name: 'Espa\u00f1ol', flag: '\u{1F1EA}\u{1F1F8}' },
+        'polish': { name: 'Polski', flag: '\u{1F1F5}\u{1F1F1}' },
+        'french': { name: 'Fran\u00e7ais', flag: '\u{1F1EB}\u{1F1F7}' },
+        'italian': { name: 'Italiano', flag: '\u{1F1EE}\u{1F1F9}' },
+        'portuguese': { name: 'Portugu\u00eas', flag: '\u{1F1F5}\u{1F1F9}' },
+        'dutch': { name: 'Nederlands', flag: '\u{1F1F3}\u{1F1F1}' },
+        'russian': { name: '\u0420\u0443\u0441\u0441\u043A\u0438\u0439', flag: '\u{1F1F7}\u{1F1FA}' },
+    };
+
+    function loadSettings() {
+        const saved = localStorage.getItem(storageKey('glossariumSettings'));
+        if (saved) {
+            try { return JSON.parse(saved); } catch (e) {}
+        }
+        return { languages: [] };
+    }
+
+    const appSettings = loadSettings();
+    const glossarySelect = document.getElementById('glossary-select');
+    const entriesContainer = document.getElementById('entries-container');
+    const entriesEmpty = document.getElementById('entries-empty');
+    const entryCount = document.getElementById('entry-count');
+
+    let glossaries = [];
+    let selectedGlossaryId = localStorage.getItem(storageKey('selectedGlossaryId')) || null;
+    let openSwipeCard = null;
+
+    async function loadGlossaries() {
+        try {
+            const response = await fetch('/glossaries');
+            if (!response.ok) return;
+            glossaries = await response.json();
+            glossarySelect.innerHTML = '';
+            glossaries.forEach(g => {
+                const option = document.createElement('option');
+                option.value = g.id;
+                option.textContent = g.name;
+                if (g.id == selectedGlossaryId) option.selected = true;
+                glossarySelect.appendChild(option);
+            });
+            if (!selectedGlossaryId && glossaries.length > 0) {
+                const def = glossaries.find(g => g.is_default) || glossaries[0];
+                selectedGlossaryId = def.id;
+                glossarySelect.value = def.id;
+            }
+        } catch (e) {
+            console.error('Error loading glossaries:', e);
+        }
+    }
+
+    glossarySelect.addEventListener('change', () => {
+        selectedGlossaryId = glossarySelect.value;
+        localStorage.setItem(storageKey('selectedGlossaryId'), selectedGlossaryId);
+        loadEntries(selectedGlossaryId);
+    });
+
+    async function loadEntries(glossaryId) {
+        entriesContainer.innerHTML = '<div class="entries-loading">Laden...</div>';
+        entriesEmpty.style.display = 'none';
+        entryCount.textContent = '';
+        try {
+            const params = glossaryId ? '?glossary_id=' + glossaryId : '';
+            const response = await fetch('/glossary/entries' + params);
+            if (!response.ok) throw new Error('Fetch failed');
+            const entries = await response.json();
+            renderEntries(entries);
+        } catch (e) {
+            console.error('Error loading entries:', e);
+            entriesContainer.innerHTML = '<div class="entries-loading">Fehler beim Laden.</div>';
+        }
+    }
+
+    function renderEntries(entries) {
+        entriesContainer.innerHTML = '';
+        if (entries.length === 0) {
+            entriesEmpty.style.display = 'block';
+            entryCount.textContent = '0';
+            return;
+        }
+        entriesEmpty.style.display = 'none';
+        entryCount.textContent = entries.length;
+
+        entries.forEach(entry => {
+            const wrapper = document.createElement('div');
+            wrapper.className = 'entry-card-wrapper';
+            wrapper.dataset.id = entry.id;
+
+            const langs = appSettings.languages.length > 0 ? appSettings.languages : ['german', 'english', 'spanish', 'polish'];
+            let langsHtml = '';
+            langs.forEach(lang => {
+                const val = entry[lang];
+                const langData = allLanguages[lang];
+                if (val && langData) {
+                    langsHtml += '<span class="entry-lang">' +
+                        '<span class="entry-flag">' + langData.flag + '</span>' +
+                        '<span class="entry-text">' + escapeHtml(val) + '</span>' +
+                    '</span>';
+                }
+            });
+
+            const rate = entry.total_learning_rate || 0;
+
+            wrapper.innerHTML =
+                '<div class="entry-card">' +
+                    '<div class="entry-card-body">' + langsHtml + '</div>' +
+                    '<div class="entry-card-actions">' +
+                        '<span class="entry-rate">' + rate + '</span>' +
+                        '<button class="entry-delete" aria-label="L&ouml;schen">&times;</button>' +
+                    '</div>' +
+                '</div>' +
+                '<div class="swipe-delete">L&ouml;schen</div>';
+
+            wrapper.querySelector('.entry-delete').addEventListener('click', (e) => {
+                e.stopPropagation();
+                deleteEntry(entry.id, wrapper);
+            });
+
+            wrapper.querySelector('.swipe-delete').addEventListener('click', () => {
+                deleteEntry(entry.id, wrapper);
+            });
+
+            setupSwipe(wrapper);
+            entriesContainer.appendChild(wrapper);
+        });
+    }
+
+    function escapeHtml(text) {
+        const d = document.createElement('div');
+        d.textContent = text;
+        return d.innerHTML;
+    }
+
+    async function deleteEntry(id, wrapper) {
+        try {
+            const response = await fetch('/glossary/entry/' + id, { method: 'DELETE' });
+            if (response.ok) {
+                wrapper.style.transition = 'opacity 0.2s ease, max-height 0.3s ease';
+                wrapper.style.opacity = '0';
+                wrapper.style.maxHeight = wrapper.offsetHeight + 'px';
+                requestAnimationFrame(() => {
+                    wrapper.style.maxHeight = '0';
+                    wrapper.style.marginBottom = '0';
+                    wrapper.style.overflow = 'hidden';
+                });
+                setTimeout(() => {
+                    wrapper.remove();
+                    const remaining = entriesContainer.children.length;
+                    entryCount.textContent = remaining;
+                    if (remaining === 0) entriesEmpty.style.display = 'block';
+                }, 300);
+                loadGlossaries();
+            }
+        } catch (e) {
+            console.error('Error deleting entry:', e);
+        }
+    }
+
+    function setupSwipe(wrapper) {
+        const card = wrapper.querySelector('.entry-card');
+        let startX = 0, currentX = 0, isDragging = false;
+
+        card.addEventListener('touchstart', (e) => {
+            if (openSwipeCard && openSwipeCard !== wrapper) resetSwipe(openSwipeCard);
+            startX = e.touches[0].clientX;
+            currentX = 0;
+            isDragging = true;
+            card.style.transition = 'none';
+        }, { passive: true });
+
+        card.addEventListener('touchmove', (e) => {
+            if (!isDragging) return;
+            currentX = e.touches[0].clientX - startX;
+            if (currentX > 0) currentX = 0;
+            if (currentX < -100) currentX = -100;
+            card.style.transform = 'translateX(' + currentX + 'px)';
+        }, { passive: true });
+
+        card.addEventListener('touchend', () => {
+            if (!isDragging) return;
+            isDragging = false;
+            card.style.transition = 'transform 0.2s ease';
+            if (currentX < -50) {
+                card.style.transform = 'translateX(-80px)';
+                openSwipeCard = wrapper;
+            } else {
+                card.style.transform = 'translateX(0)';
+                if (openSwipeCard === wrapper) openSwipeCard = null;
+            }
+        });
+    }
+
+    function resetSwipe(wrapper) {
+        const card = wrapper.querySelector('.entry-card');
+        if (card) {
+            card.style.transition = 'transform 0.2s ease';
+            card.style.transform = 'translateX(0)';
+        }
+        if (openSwipeCard === wrapper) openSwipeCard = null;
+    }
+
+    document.addEventListener('touchstart', (e) => {
+        if (openSwipeCard && !openSwipeCard.contains(e.target)) resetSwipe(openSwipeCard);
+    }, { passive: true });
+
+    loadGlossaries().then(() => loadEntries(selectedGlossaryId));
+</script>
+{% endblock %}

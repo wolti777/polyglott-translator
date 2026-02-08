@@ -44,6 +44,8 @@ class GlossaryEntry(Base):
     portuguese = Column(String(500))
     dutch = Column(String(500))
     russian = Column(String(500))
+    learning_rate = Column(Integer, default=0)
+    total_learning_rate = Column(Integer, default=0)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     user = relationship("User", back_populates="glossary_entries")

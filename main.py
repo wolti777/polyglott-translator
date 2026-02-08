@@ -1,4 +1,5 @@
-from datetime import timedelta
+import random
+from datetime import timedelta, datetime
 from io import BytesIO
 from typing import Optional
 
@@ -6,6 +7,7 @@ from fastapi import FastAPI, Request, Depends, Form, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from sqlalchemy import func as sa_func
 from sqlalchemy.orm import Session
 from openpyxl import Workbook
 from pydantic import BaseModel
@@ -35,6 +37,13 @@ def migrate_add_language_columns():
     for col in ["french", "italian", "portuguese", "dutch", "russian"]:
         if col not in existing_cols:
             cursor.execute(f"ALTER TABLE glossary_entries ADD COLUMN {col} VARCHAR(500)")
+    if "learning_rate" not in existing_cols:
+        cursor.execute("ALTER TABLE glossary_entries ADD COLUMN learning_rate INTEGER DEFAULT 0")
+    if "total_learning_rate" not in existing_cols:
+        cursor.execute("ALTER TABLE glossary_entries ADD COLUMN total_learning_rate INTEGER DEFAULT 0")
+    # Ensure existing NULL values are set to 0
+    cursor.execute("UPDATE glossary_entries SET learning_rate = 0 WHERE learning_rate IS NULL")
+    cursor.execute("UPDATE glossary_entries SET total_learning_rate = 0 WHERE total_learning_rate IS NULL")
     conn.commit()
     conn.close()
 
@@ -496,6 +505,240 @@ async def export_glossary(
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f"attachment; filename={filename}"},
     )
+
+
+# ==================== Glossary List Routes ====================
+
+
+@app.get("/glossary-list", response_class=HTMLResponse)
+async def glossary_list_page(request: Request, db: Session = Depends(get_db)):
+    user = await get_current_user(request, db)
+    if not user:
+        return RedirectResponse(url="/login", status_code=303)
+    return templates.TemplateResponse(
+        "glossary_list.html", {"request": request, "user": user}
+    )
+
+
+@app.get("/glossary/entries")
+async def get_glossary_entries(
+    request: Request,
+    glossary_id: Optional[int] = None,
+    db: Session = Depends(get_db),
+):
+    """Get all entries for a glossary."""
+    user = await get_current_user(request, db)
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    if glossary_id:
+        glossary = db.query(Glossary).filter(
+            Glossary.id == glossary_id,
+            Glossary.user_id == user.id
+        ).first()
+        if not glossary:
+            raise HTTPException(status_code=404, detail="Glossary not found")
+    else:
+        glossary = get_or_create_default_glossary(db, user.id)
+
+    entries = (
+        db.query(GlossaryEntry)
+        .filter(GlossaryEntry.glossary_id == glossary.id)
+        .order_by(GlossaryEntry.created_at.desc())
+        .all()
+    )
+
+    ALL_LANG_COLS = ["spanish", "german", "polish", "english", "french", "italian", "portuguese", "dutch", "russian"]
+    return [
+        {
+            "id": e.id,
+            **{col: getattr(e, col) for col in ALL_LANG_COLS},
+            "total_learning_rate": e.total_learning_rate or 0,
+            "created_at": e.created_at.isoformat() if e.created_at else None,
+        }
+        for e in entries
+    ]
+
+
+@app.delete("/glossary/entry/{entry_id}")
+async def delete_glossary_entry(
+    request: Request,
+    entry_id: int,
+    db: Session = Depends(get_db),
+):
+    """Delete a glossary entry."""
+    user = await get_current_user(request, db)
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    entry = db.query(GlossaryEntry).filter(
+        GlossaryEntry.id == entry_id,
+        GlossaryEntry.user_id == user.id,
+    ).first()
+
+    if not entry:
+        raise HTTPException(status_code=404, detail="Entry not found")
+
+    db.delete(entry)
+    db.commit()
+    return {"success": True}
+
+
+# ==================== Vocab Test Routes ====================
+
+
+@app.get("/vocab-test", response_class=HTMLResponse)
+async def vocab_test_page(request: Request, db: Session = Depends(get_db)):
+    user = await get_current_user(request, db)
+    if not user:
+        return RedirectResponse(url="/login", status_code=303)
+    return templates.TemplateResponse(
+        "vocab_test.html", {"request": request, "user": user}
+    )
+
+
+class VocabStartRequest(BaseModel):
+    glossary_id: Optional[int] = None
+    days: int = 1
+    learn_limit: int = 10
+
+
+@app.post("/vocab-test/start")
+async def vocab_test_start(
+    request: Request,
+    start_request: VocabStartRequest,
+    db: Session = Depends(get_db),
+):
+    """Reset learning_rate to 0 for all entries in scope, return count."""
+    user = await get_current_user(request, db)
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    if start_request.glossary_id:
+        glossary = db.query(Glossary).filter(
+            Glossary.id == start_request.glossary_id, Glossary.user_id == user.id
+        ).first()
+        if not glossary:
+            raise HTTPException(status_code=404, detail="Glossary not found")
+    else:
+        glossary = get_or_create_default_glossary(db, user.id)
+
+    since = datetime.utcnow() - timedelta(days=start_request.days)
+
+    # Reset learning_rate for entries in scope
+    count = (
+        db.query(GlossaryEntry)
+        .filter(
+            GlossaryEntry.glossary_id == glossary.id,
+            GlossaryEntry.created_at >= since,
+            sa_func.coalesce(GlossaryEntry.total_learning_rate, 0) < start_request.learn_limit,
+        )
+        .update({"learning_rate": 0}, synchronize_session="fetch")
+    )
+    db.commit()
+    return {"success": True, "reset_count": count}
+
+
+ALL_LANG_COLS = ["spanish", "german", "polish", "english", "french", "italian", "portuguese", "dutch", "russian"]
+
+
+@app.get("/vocab-test/entries")
+async def vocab_test_entries(
+    request: Request,
+    question_lang: str,
+    answer_langs: str = "",
+    glossary_id: Optional[int] = None,
+    days: int = 1,
+    max_rate: int = 3,
+    learn_limit: int = 10,
+    db: Session = Depends(get_db),
+):
+    """Return all matching entries for the client to shuffle and iterate."""
+    user = await get_current_user(request, db)
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    if glossary_id:
+        glossary = db.query(Glossary).filter(
+            Glossary.id == glossary_id, Glossary.user_id == user.id
+        ).first()
+        if not glossary:
+            raise HTTPException(status_code=404, detail="Glossary not found")
+    else:
+        glossary = get_or_create_default_glossary(db, user.id)
+
+    since = datetime.utcnow() - timedelta(days=days)
+
+    question_col = getattr(GlossaryEntry, question_lang, None)
+    if question_col is None:
+        raise HTTPException(status_code=400, detail="Invalid language")
+
+    entries = (
+        db.query(GlossaryEntry)
+        .filter(
+            GlossaryEntry.glossary_id == glossary.id,
+            GlossaryEntry.created_at >= since,
+            sa_func.coalesce(GlossaryEntry.learning_rate, 0) < max_rate,
+            sa_func.coalesce(GlossaryEntry.total_learning_rate, 0) < learn_limit,
+            question_col.isnot(None),
+            question_col != "",
+        )
+        .all()
+    )
+
+    a_langs = [l for l in answer_langs.split(",") if l and l != question_lang] if answer_langs else []
+
+    result = []
+    for entry in entries:
+        answers = {}
+        for lang in a_langs:
+            val = getattr(entry, lang, None)
+            if val:
+                answers[lang] = val
+        result.append({
+            "id": entry.id,
+            "question": getattr(entry, question_lang),
+            "answers": answers,
+            "learning_rate": entry.learning_rate or 0,
+            "total_learning_rate": entry.total_learning_rate or 0,
+        })
+
+    return {"entries": result, "total": len(result)}
+
+
+class VocabAnswerRequest(BaseModel):
+    entry_id: int
+    correct: bool
+
+
+@app.post("/vocab-test/answer")
+async def vocab_test_answer(
+    request: Request,
+    answer_request: VocabAnswerRequest,
+    db: Session = Depends(get_db),
+):
+    user = await get_current_user(request, db)
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    entry = db.query(GlossaryEntry).filter(
+        GlossaryEntry.id == answer_request.entry_id,
+        GlossaryEntry.user_id == user.id,
+    ).first()
+
+    if not entry:
+        raise HTTPException(status_code=404, detail="Entry not found")
+
+    if answer_request.correct:
+        entry.learning_rate = (entry.learning_rate or 0) + 1
+        entry.total_learning_rate = (entry.total_learning_rate or 0) + 1
+        db.commit()
+
+    return {
+        "success": True,
+        "learning_rate": entry.learning_rate or 0,
+        "total_learning_rate": entry.total_learning_rate or 0,
+    }
 
 
 if __name__ == "__main__":
