@@ -68,6 +68,9 @@ def migrate_add_language_columns():
         # Set created_at for existing users
         cursor.execute("UPDATE users SET created_at = datetime('now') WHERE created_at IS NULL")
 
+    if "language_config" not in user_cols:
+        cursor.execute("ALTER TABLE users ADD COLUMN language_config TEXT")
+
     # Auto-verify first user (admin)
     cursor.execute("UPDATE users SET email_verified = 1 WHERE id = 1")
 
@@ -162,13 +165,8 @@ async def login(
             {"request": request, "error": "Invalid username or password"},
         )
 
-    # Check email verification (skip for admin user or users without email)
-    is_admin = user.id == 1 or user.username == "admin"
-    if not is_admin and user.email and not user.email_verified:
-        return templates.TemplateResponse(
-            "login.html",
-            {"request": request, "error": "Bitte bestätige zuerst deine E-Mail-Adresse. <a href='/verify-pending?username=" + user.username + "'>Erneut senden</a>"},
-        )
+    # Email verification is no longer required for login
+    # Users can log in and use the app, but unverified email is shown as a hint
 
     access_token = create_access_token(
         data={"sub": user.username},
@@ -260,15 +258,19 @@ async def register(
         response.set_cookie(key="access_token", value=access_token, httponly=True, samesite="lax")
         return response
 
-    # Send verification email
+    # Send verification email in background (non-blocking)
     token = create_verification_token(email)
     base_url = get_base_url(request)
-    email_sent = send_verification_email(email, token, base_url)
-    if not email_sent:
-        print(f"WARNING: Verification email to {email} failed. User can still be verified by admin.")
+    send_verification_email(email, token, base_url)
 
-    # Redirect to verify-pending page
-    return RedirectResponse(url=f"/verify-pending?username={user.username}", status_code=303)
+    # Log user in directly after registration
+    access_token = create_access_token(
+        data={"sub": user.username},
+        expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
+    )
+    response = RedirectResponse(url="/translator", status_code=303)
+    response.set_cookie(key="access_token", value=access_token, httponly=True, samesite="lax")
+    return response
 
 
 @app.get("/verify-pending", response_class=HTMLResponse)
@@ -562,6 +564,43 @@ async def delete_user_api_key(
         db.commit()
 
     return {"success": True}
+
+
+# ==================== User Settings Routes ====================
+
+@app.get("/user/settings")
+async def get_user_settings(request: Request, db: Session = Depends(get_db)):
+    """Get user's language settings from DB."""
+    user = await get_current_user(request, db)
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    return {"language_config": user.language_config or ""}
+
+
+@app.post("/user/settings")
+async def save_user_settings(request: Request, db: Session = Depends(get_db)):
+    """Save user's language settings to DB."""
+    user = await get_current_user(request, db)
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    body = await request.json()
+    user.language_config = body.get("language_config", "")
+    db.commit()
+    return {"success": True}
+
+
+@app.post("/admin/verify-user/{username}")
+async def admin_verify_user(request: Request, username: str, db: Session = Depends(get_db)):
+    """Admin can manually verify a user's email."""
+    admin = await get_current_user(request, db)
+    if not admin or (admin.id != 1 and admin.username != "admin"):
+        raise HTTPException(status_code=403, detail="Admin only")
+    target = get_user_by_username(db, username)
+    if not target:
+        raise HTTPException(status_code=404, detail="User not found")
+    target.email_verified = True
+    db.commit()
+    return {"success": True, "message": f"User {username} verified"}
 
 
 # ==================== Translator Routes ====================

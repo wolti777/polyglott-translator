@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean, UniqueConstraint
+from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, Boolean, UniqueConstraint
 from sqlalchemy.orm import relationship
 from datetime import datetime
 
@@ -13,6 +13,7 @@ class User(Base):
     password_hash = Column(String(255), nullable=False)
     email = Column(String(255), unique=True, nullable=True)
     email_verified = Column(Boolean, default=False)
+    language_config = Column(Text, nullable=True)  # JSON: user's language settings
     created_at = Column(DateTime, default=datetime.utcnow)
 
     glossaries = relationship("Glossary", back_populates="user")

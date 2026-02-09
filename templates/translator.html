@@ -323,7 +323,7 @@
         }
     };
 
-    // Load settings from localStorage (per-user)
+    // Load settings from localStorage (per-user), then sync from DB
     function loadSettings() {
         const saved = localStorage.getItem(storageKey('glossariumSettings'));
         if (saved) {
@@ -336,9 +336,35 @@
         return { ...defaultSettings };
     }
 
-    // Save settings to localStorage (per-user)
+    // Save settings to localStorage and DB
     function saveSettingsToStorage(settings) {
         localStorage.setItem(storageKey('glossariumSettings'), JSON.stringify(settings));
+        // Also save to DB for cross-device sync
+        fetch('/user/settings', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({language_config: JSON.stringify(settings)})
+        }).catch(e => console.error('Failed to sync settings to DB:', e));
+    }
+
+    // Load settings from DB (cross-device sync)
+    async function syncSettingsFromDB() {
+        try {
+            const resp = await fetch('/user/settings');
+            if (resp.ok) {
+                const data = await resp.json();
+                if (data.language_config) {
+                    const dbSettings = JSON.parse(data.language_config);
+                    if (dbSettings.languages && dbSettings.languages.length >= 2) {
+                        localStorage.setItem(storageKey('glossariumSettings'), JSON.stringify(dbSettings));
+                        return dbSettings;
+                    }
+                }
+            }
+        } catch (e) {
+            console.error('Failed to load settings from DB:', e);
+        }
+        return null;
     }
 
     // Current settings
@@ -681,11 +707,20 @@
         }
     }
 
-    // Auto-open settings on first launch (no saved settings or too few languages)
-    if (!localStorage.getItem(storageKey('glossariumSettings')) || appSettings.languages.length < 2) {
-        setTimeout(() => openSettingsModal(), 300);
-    }
-    updateConfigWarning();
+    // Sync settings from DB on load, then decide if settings modal is needed
+    (async function initSettings() {
+        if (!localStorage.getItem(storageKey('glossariumSettings')) || appSettings.languages.length < 2) {
+            // No local settings - try to load from DB (cross-device sync)
+            const dbSettings = await syncSettingsFromDB();
+            if (dbSettings && dbSettings.languages && dbSettings.languages.length >= 2) {
+                // Settings loaded from DB, reload page to apply them
+                location.reload();
+                return;
+            }
+            setTimeout(() => openSettingsModal(), 300);
+        }
+        updateConfigWarning();
+    })();
 
     function updateLanguageDisplay(lang) {
         const langData = allLanguages[lang];

@@ -1,5 +1,6 @@
 import os
 import smtplib
+import threading
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from datetime import datetime, timedelta
@@ -100,49 +101,54 @@ def verify_password_reset_token(token: str) -> Optional[str]:
         return None
 
 
-def send_email(to_email: str, subject: str, html_body: str) -> bool:
-    if not SMTP_HOST or not SMTP_USER or not SMTP_PASSWORD:
-        print(f"SMTP not configured. Email to {to_email}: {subject}")
-        return False
-
+def _send_email_sync(to_email: str, subject: str, msg):
+    """Send email synchronously - called from background thread."""
     try:
-        msg = MIMEMultipart("alternative")
-        msg["From"] = SMTP_FROM or SMTP_USER
-        msg["To"] = to_email
-        msg["Subject"] = subject
-        msg.attach(MIMEText(html_body, "html"))
-
         if SMTP_PORT == 465:
-            with smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT, timeout=10) as server:
+            with smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT, timeout=15) as server:
                 server.login(SMTP_USER, SMTP_PASSWORD)
                 server.send_message(msg)
         else:
-            with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=10) as server:
+            with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=15) as server:
                 server.starttls()
                 server.login(SMTP_USER, SMTP_PASSWORD)
                 server.send_message(msg)
         print(f"Email sent successfully to {to_email}")
-        return True
     except Exception as e:
         print(f"Email send failed (port {SMTP_PORT}): {e}")
-        # Fallback: try port 587 if 465 failed, or vice versa
+        # Fallback port
         try:
             fallback_port = 587 if SMTP_PORT == 465 else 465
-            print(f"Trying fallback port {fallback_port}...")
             if fallback_port == 465:
-                with smtplib.SMTP_SSL(SMTP_HOST, fallback_port, timeout=10) as server:
+                with smtplib.SMTP_SSL(SMTP_HOST, fallback_port, timeout=15) as server:
                     server.login(SMTP_USER, SMTP_PASSWORD)
                     server.send_message(msg)
             else:
-                with smtplib.SMTP(SMTP_HOST, fallback_port, timeout=10) as server:
+                with smtplib.SMTP(SMTP_HOST, fallback_port, timeout=15) as server:
                     server.starttls()
                     server.login(SMTP_USER, SMTP_PASSWORD)
                     server.send_message(msg)
-            print(f"Email sent successfully via fallback port {fallback_port}")
-            return True
+            print(f"Email sent via fallback port {fallback_port}")
         except Exception as e2:
-            print(f"Email fallback also failed (port {fallback_port}): {e2}")
-            return False
+            print(f"Email fallback also failed: {e2}")
+
+
+def send_email(to_email: str, subject: str, html_body: str) -> bool:
+    """Send email in background thread - returns immediately."""
+    if not SMTP_HOST or not SMTP_USER or not SMTP_PASSWORD:
+        print(f"SMTP not configured. Email to {to_email}: {subject}")
+        return False
+
+    msg = MIMEMultipart("alternative")
+    msg["From"] = SMTP_FROM or SMTP_USER
+    msg["To"] = to_email
+    msg["Subject"] = subject
+    msg.attach(MIMEText(html_body, "html"))
+
+    thread = threading.Thread(target=_send_email_sync, args=(to_email, subject, msg))
+    thread.daemon = True
+    thread.start()
+    return True
 
 
 def send_verification_email(email: str, token: str, base_url: str) -> bool:
