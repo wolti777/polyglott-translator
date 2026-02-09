@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 from openpyxl import Workbook
 from pydantic import BaseModel
 
-from database import engine, get_db, Base, DB_PATH
+from database import engine, get_db, Base, SQLALCHEMY_DATABASE_URL
 from models import User, Glossary, GlossaryEntry, UserApiKey
 from auth import (
     create_access_token,
@@ -36,14 +36,19 @@ from auth import (
 )
 from translator import translate_to_all_languages, get_trial_days_remaining
 
-# Create database tables
+# Create database tables (works for both SQLite and PostgreSQL)
 Base.metadata.create_all(bind=engine)
 
-# Migrate: add new language columns if they don't exist
-def migrate_add_language_columns():
+# Run migrations for existing SQLite databases (local dev)
+def migrate_existing_db():
+    if "sqlite" not in SQLALCHEMY_DATABASE_URL:
+        return  # PostgreSQL tables are created fresh by create_all
+
     import sqlite3
-    conn = sqlite3.connect(DB_PATH)
+    db_path = SQLALCHEMY_DATABASE_URL.replace("sqlite:///", "")
+    conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
+
     cursor.execute("PRAGMA table_info(glossary_entries)")
     existing_cols = {row[1] for row in cursor.fetchall()}
     for col in ["french", "italian", "portuguese", "dutch", "russian"]:
@@ -53,11 +58,9 @@ def migrate_add_language_columns():
         cursor.execute("ALTER TABLE glossary_entries ADD COLUMN learning_rate INTEGER DEFAULT 0")
     if "total_learning_rate" not in existing_cols:
         cursor.execute("ALTER TABLE glossary_entries ADD COLUMN total_learning_rate INTEGER DEFAULT 0")
-    # Ensure existing NULL values are set to 0
     cursor.execute("UPDATE glossary_entries SET learning_rate = 0 WHERE learning_rate IS NULL")
     cursor.execute("UPDATE glossary_entries SET total_learning_rate = 0 WHERE total_learning_rate IS NULL")
 
-    # Migrate users table: add email, email_verified, created_at
     cursor.execute("PRAGMA table_info(users)")
     user_cols = {row[1] for row in cursor.fetchall()}
     if "email" not in user_cols:
@@ -66,19 +69,15 @@ def migrate_add_language_columns():
         cursor.execute("ALTER TABLE users ADD COLUMN email_verified BOOLEAN DEFAULT 0")
     if "created_at" not in user_cols:
         cursor.execute("ALTER TABLE users ADD COLUMN created_at DATETIME")
-        # Set created_at for existing users
         cursor.execute("UPDATE users SET created_at = datetime('now') WHERE created_at IS NULL")
-
     if "language_config" not in user_cols:
         cursor.execute("ALTER TABLE users ADD COLUMN language_config TEXT")
 
-    # Auto-verify first user (admin)
     cursor.execute("UPDATE users SET email_verified = 1 WHERE id = 1")
-
     conn.commit()
     conn.close()
 
-migrate_add_language_columns()
+migrate_existing_db()
 
 app = FastAPI(title="Polyglot Translator")
 
