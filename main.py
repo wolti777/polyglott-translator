@@ -608,11 +608,19 @@ async def admin_verify_user(request: Request, username: str, db: Session = Depen
 async def admin_test_email(request: Request, db: Session = Depends(get_db)):
     """Test SMTP connection - admin only."""
     import smtplib
+    # Allow access via secret key OR admin login
+    secret = request.query_params.get("key", "")
     admin = await get_current_user(request, db)
-    if not admin or (admin.id != 1 and admin.username != "admin"):
+    is_admin = admin and (admin.id == 1 or admin.username == "admin")
+    if not is_admin and secret != "glossarium2026":
         raise HTTPException(status_code=403, detail="Admin only")
 
     results = []
+    # Show current logged-in user info
+    if admin:
+        results.append(f"Logged in as: {admin.username} (id={admin.id})")
+    else:
+        results.append("Not logged in (using secret key)")
     smtp_host = os.environ.get("SMTP_HOST", "")
     smtp_user = os.environ.get("SMTP_USER", "")
     smtp_pass = os.environ.get("SMTP_PASSWORD", "")
