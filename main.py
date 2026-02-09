@@ -1,3 +1,4 @@
+import os
 import random
 from datetime import timedelta, datetime
 from io import BytesIO
@@ -601,6 +602,60 @@ async def admin_verify_user(request: Request, username: str, db: Session = Depen
     target.email_verified = True
     db.commit()
     return {"success": True, "message": f"User {username} verified"}
+
+
+@app.get("/admin/test-email")
+async def admin_test_email(request: Request, db: Session = Depends(get_db)):
+    """Test SMTP connection - admin only."""
+    import smtplib
+    admin = await get_current_user(request, db)
+    if not admin or (admin.id != 1 and admin.username != "admin"):
+        raise HTTPException(status_code=403, detail="Admin only")
+
+    results = []
+    smtp_host = os.environ.get("SMTP_HOST", "")
+    smtp_user = os.environ.get("SMTP_USER", "")
+    smtp_pass = os.environ.get("SMTP_PASSWORD", "")
+    smtp_port = int(os.environ.get("SMTP_PORT", "465"))
+
+    results.append(f"SMTP_HOST: {smtp_host}")
+    results.append(f"SMTP_PORT: {smtp_port}")
+    results.append(f"SMTP_USER: {smtp_user}")
+    results.append(f"SMTP_PASSWORD: {'***' + smtp_pass[-4:] if len(smtp_pass) > 4 else '(empty)'}")
+
+    for port in [465, 587]:
+        try:
+            if port == 465:
+                with smtplib.SMTP_SSL(smtp_host, port, timeout=10) as server:
+                    server.login(smtp_user, smtp_pass)
+                    results.append(f"Port {port} (SSL): OK - connected and authenticated")
+            else:
+                with smtplib.SMTP(smtp_host, port, timeout=10) as server:
+                    server.starttls()
+                    server.login(smtp_user, smtp_pass)
+                    results.append(f"Port {port} (STARTTLS): OK - connected and authenticated")
+        except Exception as e:
+            results.append(f"Port {port}: FAILED - {e}")
+
+    # Try sending a real test email to admin
+    if admin.email:
+        from auth import send_email
+        results.append(f"Sending test email to {admin.email}...")
+        try:
+            from auth import _send_email_sync, SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD, SMTP_FROM
+            from email.mime.text import MIMEText
+            from email.mime.multipart import MIMEMultipart
+            msg = MIMEMultipart("alternative")
+            msg["From"] = SMTP_FROM or SMTP_USER
+            msg["To"] = admin.email
+            msg["Subject"] = "Glossarium SMTP Test"
+            msg.attach(MIMEText("<h2>SMTP Test</h2><p>If you see this, email works!</p>", "html"))
+            _send_email_sync(admin.email, "Test", msg)
+            results.append("Test email sent (check inbox)")
+        except Exception as e:
+            results.append(f"Test email failed: {e}")
+
+    return {"results": results}
 
 
 @app.get("/admin/dashboard", response_class=HTMLResponse)
