@@ -646,7 +646,7 @@ async def admin_test_email(request: Request, db: Session = Depends(get_db)):
             results.append(f"Port {port}: FAILED - {e}")
 
     # Try sending a real test email to admin
-    if admin.email:
+    if admin and admin.email:
         from auth import send_email
         results.append(f"Sending test email to {admin.email}...")
         try:
