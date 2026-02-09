@@ -258,12 +258,7 @@ async def register(
         response.set_cookie(key="access_token", value=access_token, httponly=True, samesite="lax")
         return response
 
-    # Send verification email in background (non-blocking)
-    token = create_verification_token(email)
-    base_url = get_base_url(request)
-    send_verification_email(email, token, base_url)
-
-    # Log user in directly after registration
+    # Log user in directly after registration (no email verification needed)
     access_token = create_access_token(
         data={"sub": user.username},
         expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
@@ -603,6 +598,24 @@ async def admin_verify_user(request: Request, username: str, db: Session = Depen
     return {"success": True, "message": f"User {username} verified"}
 
 
+@app.post("/admin/reset-password/{username}")
+async def admin_reset_password(request: Request, username: str, db: Session = Depends(get_db)):
+    """Admin can reset a user's password."""
+    admin = await get_current_user(request, db)
+    if not admin or (admin.id != 1 and admin.username != "admin"):
+        raise HTTPException(status_code=403, detail="Admin only")
+    body = await request.json()
+    new_password = body.get("password", "")
+    if len(new_password) < 6:
+        raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
+    target = get_user_by_username(db, username)
+    if not target:
+        raise HTTPException(status_code=404, detail="User not found")
+    target.password_hash = get_password_hash(new_password)
+    db.commit()
+    return {"success": True, "message": f"Passwort für {username} geändert"}
+
+
 @app.get("/admin/test-email")
 async def admin_test_email(request: Request, db: Session = Depends(get_db)):
     """Test SMTP connection - admin only."""
@@ -724,8 +737,11 @@ th {{ font-weight: 600; color: var(--text-muted); }}
             except:
                 langs = "?"
         created = u.created_at.strftime("%d.%m.%Y") if u.created_at else "?"
-        verify_btn = "" if u.email_verified else f'<form method="post" action="/admin/verify-user/{u.username}" style="display:inline"><button type="submit" class="btn-sm btn-verify">Verifizieren</button></form>'
-        html += f"<tr><td>{u.id}</td><td><strong>{u.username}</strong></td><td>{u.email or '-'}</td><td>{verified_badge}</td><td>{langs}</td><td>{created}</td><td>{verify_btn}</td></tr>"
+        actions = ""
+        if not u.email_verified:
+            actions += f'<form method="post" action="/admin/verify-user/{u.username}" style="display:inline"><button type="submit" class="btn-sm btn-verify">Verifizieren</button></form> '
+        actions += f'<button class="btn-sm btn-verify" onclick="resetPw(\'{u.username}\')">PW Reset</button>'
+        html += f"<tr><td>{u.id}</td><td><strong>{u.username}</strong></td><td>{u.email or '-'}</td><td>{verified_badge}</td><td>{langs}</td><td>{created}</td><td>{actions}</td></tr>"
 
     html += """</table></div>
 
@@ -738,7 +754,21 @@ th {{ font-weight: 600; color: var(--text-muted); }}
         e_count = db.query(GlossaryEntry).filter(GlossaryEntry.glossary_id == g.id).count()
         html += f"<tr><td>{g.id}</td><td>{g.name}</td><td>{owner.username if owner else '?'}</td><td>{e_count}</td></tr>"
 
-    html += "</table></div></div></body></html>"
+    html += """</table></div></div>
+<script>
+function resetPw(username) {
+    const newPw = prompt('Neues Passwort für ' + username + ':');
+    if (!newPw || newPw.length < 6) { alert('Passwort muss mindestens 6 Zeichen haben'); return; }
+    fetch('/admin/reset-password/' + username, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({password: newPw})
+    }).then(r => r.json()).then(d => {
+        alert(d.message || 'Passwort geändert');
+    }).catch(e => alert('Fehler: ' + e));
+}
+</script>
+</body></html>"""
     return HTMLResponse(content=html)
 
 
