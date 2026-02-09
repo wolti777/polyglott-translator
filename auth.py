@@ -18,7 +18,7 @@ from models import User
 
 load_dotenv()
 
-SECRET_KEY = "your-secret-key-change-in-production-make-it-long-and-random"
+SECRET_KEY = os.getenv("SECRET_KEY", "your-secret-key-change-in-production-make-it-long-and-random")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24  # 24 hours
 
