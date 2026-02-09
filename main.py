@@ -244,10 +244,25 @@ async def register(
     # Create user
     user = create_user(db, username, password, email)
 
+    # First user (admin) - skip email verification, log in directly
+    is_admin = user.id == 1 or user.username == "admin"
+    if is_admin:
+        user.email_verified = True
+        db.commit()
+        access_token = create_access_token(
+            data={"sub": user.username},
+            expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
+        )
+        response = RedirectResponse(url="/translator", status_code=303)
+        response.set_cookie(key="access_token", value=access_token, httponly=True, samesite="lax")
+        return response
+
     # Send verification email
     token = create_verification_token(email)
     base_url = get_base_url(request)
-    send_verification_email(email, token, base_url)
+    email_sent = send_verification_email(email, token, base_url)
+    if not email_sent:
+        print(f"WARNING: Verification email to {email} failed. User can still be verified by admin.")
 
     # Redirect to verify-pending page
     return RedirectResponse(url=f"/verify-pending?username={user.username}", status_code=303)

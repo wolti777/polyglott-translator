@@ -121,10 +121,28 @@ def send_email(to_email: str, subject: str, html_body: str) -> bool:
                 server.starttls()
                 server.login(SMTP_USER, SMTP_PASSWORD)
                 server.send_message(msg)
+        print(f"Email sent successfully to {to_email}")
         return True
     except Exception as e:
-        print(f"Email send failed: {e}")
-        return False
+        print(f"Email send failed (port {SMTP_PORT}): {e}")
+        # Fallback: try port 587 if 465 failed, or vice versa
+        try:
+            fallback_port = 587 if SMTP_PORT == 465 else 465
+            print(f"Trying fallback port {fallback_port}...")
+            if fallback_port == 465:
+                with smtplib.SMTP_SSL(SMTP_HOST, fallback_port, timeout=10) as server:
+                    server.login(SMTP_USER, SMTP_PASSWORD)
+                    server.send_message(msg)
+            else:
+                with smtplib.SMTP(SMTP_HOST, fallback_port, timeout=10) as server:
+                    server.starttls()
+                    server.login(SMTP_USER, SMTP_PASSWORD)
+                    server.send_message(msg)
+            print(f"Email sent successfully via fallback port {fallback_port}")
+            return True
+        except Exception as e2:
+            print(f"Email fallback also failed (port {fallback_port}): {e2}")
+            return False
 
 
 def send_verification_email(email: str, token: str, base_url: str) -> bool:
