@@ -68,6 +68,9 @@ def migrate_add_language_columns():
         # Set created_at for existing users
         cursor.execute("UPDATE users SET created_at = datetime('now') WHERE created_at IS NULL")
 
+    # Auto-verify first user (admin)
+    cursor.execute("UPDATE users SET email_verified = 1 WHERE id = 1")
+
     conn.commit()
     conn.close()
 
