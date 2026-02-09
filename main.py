@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from openpyxl import Workbook
 from pydantic import BaseModel
 
-from database import engine, get_db, Base
+from database import engine, get_db, Base, DB_PATH
 from models import User, Glossary, GlossaryEntry, UserApiKey
 from auth import (
     create_access_token,
@@ -41,7 +41,7 @@ Base.metadata.create_all(bind=engine)
 # Migrate: add new language columns if they don't exist
 def migrate_add_language_columns():
     import sqlite3
-    conn = sqlite3.connect("glossary.db")
+    conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     cursor.execute("PRAGMA table_info(glossary_entries)")
     existing_cols = {row[1] for row in cursor.fetchall()}
