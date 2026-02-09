@@ -603,6 +603,83 @@ async def admin_verify_user(request: Request, username: str, db: Session = Depen
     return {"success": True, "message": f"User {username} verified"}
 
 
+@app.get("/admin/dashboard", response_class=HTMLResponse)
+async def admin_dashboard(request: Request, db: Session = Depends(get_db)):
+    """Admin dashboard - shows all users, DB status, etc."""
+    admin = await get_current_user(request, db)
+    if not admin or (admin.id != 1 and admin.username != "admin"):
+        return RedirectResponse(url="/login", status_code=303)
+
+    users = db.query(User).all()
+    glossaries = db.query(Glossary).all()
+    entry_count = db.query(GlossaryEntry).count()
+
+    html = f"""<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin Dashboard</title>
+<link rel="stylesheet" href="/static/style.css?v=30">
+<style>
+.admin-container {{ max-width: 800px; margin: 2rem auto; padding: 1rem; }}
+.admin-card {{ background: var(--card-bg); border-radius: 0.75rem; padding: 1.5rem; margin-bottom: 1rem; box-shadow: var(--shadow); }}
+.admin-card h3 {{ margin-top: 0; color: var(--primary-color); }}
+table {{ width: 100%; border-collapse: collapse; font-size: 0.9rem; }}
+th, td {{ text-align: left; padding: 0.5rem; border-bottom: 1px solid var(--border-color); }}
+th {{ font-weight: 600; color: var(--text-muted); }}
+.badge {{ display: inline-block; padding: 0.15rem 0.5rem; border-radius: 0.25rem; font-size: 0.75rem; }}
+.badge-ok {{ background: #d1fae5; color: #065f46; }}
+.badge-warn {{ background: #fef3c7; color: #92400e; }}
+.btn-sm {{ padding: 0.25rem 0.75rem; font-size: 0.8rem; border: none; border-radius: 0.25rem; cursor: pointer; }}
+.btn-verify {{ background: var(--primary-color); color: white; }}
+.btn-back {{ display: inline-block; margin-bottom: 1rem; color: var(--primary-color); text-decoration: none; }}
+.stats {{ display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }}
+.stat {{ text-align: center; }}
+.stat-num {{ font-size: 2rem; font-weight: 700; color: var(--primary-color); }}
+.stat-label {{ color: var(--text-muted); font-size: 0.85rem; }}
+</style></head><body>
+<div class="admin-container">
+<a href="/translator" class="btn-back">← Zurück zum Translator</a>
+<h2>Admin Dashboard</h2>
+
+<div class="admin-card">
+<div class="stats">
+<div class="stat"><div class="stat-num">{len(users)}</div><div class="stat-label">Users</div></div>
+<div class="stat"><div class="stat-num">{len(glossaries)}</div><div class="stat-label">Glossare</div></div>
+<div class="stat"><div class="stat-num">{entry_count}</div><div class="stat-label">Einträge</div></div>
+</div></div>
+
+<div class="admin-card">
+<h3>Users</h3>
+<table><tr><th>ID</th><th>Username</th><th>Email</th><th>Verifiziert</th><th>Sprachen</th><th>Erstellt</th><th>Aktion</th></tr>"""
+
+    for u in users:
+        verified_badge = '<span class="badge badge-ok">✓</span>' if u.email_verified else '<span class="badge badge-warn">✗</span>'
+        langs = ""
+        if u.language_config:
+            try:
+                import json
+                lc = json.loads(u.language_config)
+                langs = ", ".join(lc.get("languages", []))
+            except:
+                langs = "?"
+        created = u.created_at.strftime("%d.%m.%Y") if u.created_at else "?"
+        verify_btn = "" if u.email_verified else f'<form method="post" action="/admin/verify-user/{u.username}" style="display:inline"><button type="submit" class="btn-sm btn-verify">Verifizieren</button></form>'
+        html += f"<tr><td>{u.id}</td><td><strong>{u.username}</strong></td><td>{u.email or '-'}</td><td>{verified_badge}</td><td>{langs}</td><td>{created}</td><td>{verify_btn}</td></tr>"
+
+    html += """</table></div>
+
+<div class="admin-card">
+<h3>Glossare</h3>
+<table><tr><th>ID</th><th>Name</th><th>User</th><th>Einträge</th></tr>"""
+
+    for g in glossaries:
+        owner = db.query(User).filter(User.id == g.user_id).first()
+        e_count = db.query(GlossaryEntry).filter(GlossaryEntry.glossary_id == g.id).count()
+        html += f"<tr><td>{g.id}</td><td>{g.name}</td><td>{owner.username if owner else '?'}</td><td>{e_count}</td></tr>"
+
+    html += "</table></div></div></body></html>"
+    return HTMLResponse(content=html)
+
+
 # ==================== Translator Routes ====================
 
 

@@ -211,6 +211,7 @@
                         <h3>KONTO</h3>
                         <div class="settings-account-links">
                             <a href="/change-password" class="btn btn-outline settings-account-btn">Passwort ändern</a>
+                            <a href="/admin/dashboard" class="btn btn-outline settings-account-btn" id="admin-dashboard-link" style="display:none">Admin Dashboard</a>
                         </div>
                     </div>
                 </div>
@@ -293,6 +294,7 @@
 
     // Per-user storage keys
     const currentUsername = '{{ user.username }}';
+    const currentUserId = {{ user.id }};
     const storageKey = (key) => key + '_' + currentUsername;
 
     // All available languages
@@ -536,6 +538,12 @@
 
         // Load API keys
         loadApiKeys();
+
+        // Show admin link for admin users
+        const adminLink = document.getElementById('admin-dashboard-link');
+        if (adminLink && (currentUserId === 1 || currentUsername === 'admin')) {
+            adminLink.style.display = 'inline-block';
+        }
 
         settingsModal.style.display = 'flex';
     }
