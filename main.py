@@ -781,7 +781,11 @@ async def translator_page(request: Request, db: Session = Depends(get_db)):
     if not user:
         return RedirectResponse(url="/login", status_code=303)
     return templates.TemplateResponse(
-        "translator.html", {"request": request, "user": user}
+        "translator.html", {
+            "request": request,
+            "user": user,
+            "user_language_config": user.language_config or ""
+        }
     )
 
 
