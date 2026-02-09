@@ -628,6 +628,10 @@ async def admin_test_email(request: Request, db: Session = Depends(get_db)):
         raise HTTPException(status_code=403, detail="Admin only")
 
     results = []
+    # Show DB info
+    results.append(f"DATABASE: {SQLALCHEMY_DATABASE_URL[:50]}...")
+    user_count = db.query(User).count()
+    results.append(f"Users in DB: {user_count}")
     # Show current logged-in user info
     if admin:
         results.append(f"Logged in as: {admin.username} (id={admin.id})")
