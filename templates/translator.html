@@ -346,6 +346,9 @@
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({language_config: JSON.stringify(settings)})
+        }).then(r => {
+            if (!r.ok) console.error('Settings DB save failed:', r.status);
+            else console.log('Settings saved to DB');
         }).catch(e => console.error('Failed to sync settings to DB:', e));
     }
 
@@ -355,9 +358,9 @@
             const resp = await fetch('/user/settings');
             if (resp.ok) {
                 const data = await resp.json();
-                if (data.language_config) {
+                if (data.language_config && data.language_config.length > 2) {
                     const dbSettings = JSON.parse(data.language_config);
-                    if (dbSettings.languages && dbSettings.languages.length >= 2) {
+                    if (dbSettings && dbSettings.languages && dbSettings.languages.length >= 2) {
                         localStorage.setItem(storageKey('glossariumSettings'), JSON.stringify(dbSettings));
                         return dbSettings;
                     }
@@ -717,15 +720,32 @@
 
     // Sync settings from DB on load, then decide if settings modal is needed
     (async function initSettings() {
-        if (!localStorage.getItem(storageKey('glossariumSettings')) || appSettings.languages.length < 2) {
+        const hasLocal = localStorage.getItem(storageKey('glossariumSettings'));
+        const needsSettings = !hasLocal || appSettings.languages.length < 2;
+
+        if (needsSettings) {
             // No local settings - try to load from DB (cross-device sync)
             const dbSettings = await syncSettingsFromDB();
             if (dbSettings && dbSettings.languages && dbSettings.languages.length >= 2) {
-                // Settings loaded from DB, reload page to apply them
-                location.reload();
+                // Apply settings without reload
+                appSettings = dbSettings;
+                updateLanguageMappings();
+                updateLanguageDropdowns();
+                updateCameraLangButtons();
+                selectedLanguage = appSettings.languages[0] || 'german';
+                updateLanguageDisplay(selectedLanguage);
+                updateConfigWarning();
                 return;
             }
             setTimeout(() => openSettingsModal(), 300);
+        } else {
+            // Local settings exist - also save to DB if not yet synced
+            fetch('/user/settings').then(r => r.json()).then(data => {
+                if (!data.language_config) {
+                    // DB has no settings yet, push local settings to DB
+                    saveSettingsToStorage(appSettings);
+                }
+            }).catch(() => {});
         }
         updateConfigWarning();
     })();
