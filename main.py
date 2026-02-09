@@ -616,6 +616,26 @@ async def admin_reset_password(request: Request, username: str, db: Session = De
     return {"success": True, "message": f"Passwort für {username} geändert"}
 
 
+@app.get("/admin/debug-users")
+async def admin_debug_users(request: Request, db: Session = Depends(get_db)):
+    """Temporary: show users and allow password reset via secret key."""
+    secret = request.query_params.get("key", "")
+    if secret != "glossarium2026":
+        raise HTTPException(status_code=403, detail="Forbidden")
+    action = request.query_params.get("action", "")
+    username = request.query_params.get("user", "")
+    newpw = request.query_params.get("pw", "")
+    if action == "resetpw" and username and newpw:
+        target = get_user_by_username(db, username)
+        if target:
+            target.password_hash = get_password_hash(newpw)
+            db.commit()
+            return {"result": f"Password for {username} reset to {newpw}"}
+        return {"result": f"User {username} not found"}
+    users = db.query(User).all()
+    return {"users": [{"id": u.id, "username": u.username, "email": u.email, "has_settings": bool(u.language_config)} for u in users]}
+
+
 @app.get("/admin/test-email")
 async def admin_test_email(request: Request, db: Session = Depends(get_db)):
     """Test SMTP connection - admin only."""
