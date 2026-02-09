@@ -9,7 +9,7 @@
         <h2>Login</h2>
 
         {% if error %}
-        <div class="error-message">{{ error }}</div>
+        <div class="error-message">{{ error|safe }}</div>
         {% endif %}
 
         <form method="POST" action="/login" class="auth-form">
@@ -24,6 +24,9 @@
             <button type="submit" class="btn btn-primary">Login</button>
         </form>
 
+        <p class="auth-link">
+            <a href="/forgot-password">Passwort vergessen?</a>
+        </p>
         <p class="auth-link">
             Don't have an account? <a href="/register">Register here</a>
         </p>

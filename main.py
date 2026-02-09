@@ -3,7 +3,7 @@ from datetime import timedelta, datetime
 from io import BytesIO
 from typing import Optional
 
-from fastapi import FastAPI, Request, Depends, Form, HTTPException
+from fastapi import FastAPI, Request, Depends, Form, HTTPException, Query
 from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -13,16 +13,27 @@ from openpyxl import Workbook
 from pydantic import BaseModel
 
 from database import engine, get_db, Base
-from models import User, Glossary, GlossaryEntry
+from models import User, Glossary, GlossaryEntry, UserApiKey
 from auth import (
     create_access_token,
     create_user,
     authenticate_user,
     get_user_by_username,
+    get_user_by_email,
     get_current_user,
+    get_password_hash,
+    verify_password,
+    encrypt_api_key,
+    decrypt_api_key,
+    create_verification_token,
+    verify_email_token,
+    create_password_reset_token,
+    verify_password_reset_token,
+    send_verification_email,
+    send_password_reset_email,
     ACCESS_TOKEN_EXPIRE_MINUTES,
 )
-from translator import translate_to_all_languages
+from translator import translate_to_all_languages, get_trial_days_remaining
 
 # Create database tables
 Base.metadata.create_all(bind=engine)
@@ -44,6 +55,19 @@ def migrate_add_language_columns():
     # Ensure existing NULL values are set to 0
     cursor.execute("UPDATE glossary_entries SET learning_rate = 0 WHERE learning_rate IS NULL")
     cursor.execute("UPDATE glossary_entries SET total_learning_rate = 0 WHERE total_learning_rate IS NULL")
+
+    # Migrate users table: add email, email_verified, created_at
+    cursor.execute("PRAGMA table_info(users)")
+    user_cols = {row[1] for row in cursor.fetchall()}
+    if "email" not in user_cols:
+        cursor.execute("ALTER TABLE users ADD COLUMN email VARCHAR(255)")
+    if "email_verified" not in user_cols:
+        cursor.execute("ALTER TABLE users ADD COLUMN email_verified BOOLEAN DEFAULT 0")
+    if "created_at" not in user_cols:
+        cursor.execute("ALTER TABLE users ADD COLUMN created_at DATETIME")
+        # Set created_at for existing users
+        cursor.execute("UPDATE users SET created_at = datetime('now') WHERE created_at IS NULL")
+
     conn.commit()
     conn.close()
 
@@ -54,6 +78,14 @@ app = FastAPI(title="Polyglot Translator")
 # Mount static files and templates
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
+
+
+def get_base_url(request: Request) -> str:
+    """Get the base URL for email links."""
+    # Use X-Forwarded headers if behind a proxy
+    proto = request.headers.get("x-forwarded-proto", request.url.scheme)
+    host = request.headers.get("x-forwarded-host", request.headers.get("host", "localhost"))
+    return f"{proto}://{host}"
 
 
 class TranslateRequest(BaseModel):
@@ -89,6 +121,11 @@ class CreateGlossaryRequest(BaseModel):
     name: str
 
 
+class ApiKeyRequest(BaseModel):
+    service: str
+    api_key: str
+
+
 # ==================== Auth Routes ====================
 
 
@@ -122,6 +159,14 @@ async def login(
             {"request": request, "error": "Invalid username or password"},
         )
 
+    # Check email verification (skip for admin user or users without email)
+    is_admin = user.id == 1 or user.username == "admin"
+    if not is_admin and user.email and not user.email_verified:
+        return templates.TemplateResponse(
+            "login.html",
+            {"request": request, "error": "Bitte bestätige zuerst deine E-Mail-Adresse. <a href='/verify-pending?username=" + user.username + "'>Erneut senden</a>"},
+        )
+
     access_token = create_access_token(
         data={"sub": user.username},
         expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
@@ -150,6 +195,7 @@ async def register_page(request: Request, db: Session = Depends(get_db)):
 async def register(
     request: Request,
     username: str = Form(...),
+    email: str = Form(...),
     password: str = Form(...),
     password_confirm: str = Form(...),
     db: Session = Depends(get_db),
@@ -173,6 +219,12 @@ async def register(
             {"request": request, "error": "Passwords do not match"},
         )
 
+    if not email or "@" not in email:
+        return templates.TemplateResponse(
+            "register.html",
+            {"request": request, "error": "Bitte gib eine gültige E-Mail-Adresse ein"},
+        )
+
     # Check if user already exists
     existing_user = get_user_by_username(db, username)
     if existing_user:
@@ -181,10 +233,76 @@ async def register(
             {"request": request, "error": "Username already exists"},
         )
 
-    # Create user
-    user = create_user(db, username, password)
+    # Check if email already exists
+    existing_email = get_user_by_email(db, email)
+    if existing_email:
+        return templates.TemplateResponse(
+            "register.html",
+            {"request": request, "error": "Diese E-Mail-Adresse ist bereits registriert"},
+        )
 
-    # Auto-login after registration
+    # Create user
+    user = create_user(db, username, password, email)
+
+    # Send verification email
+    token = create_verification_token(email)
+    base_url = get_base_url(request)
+    send_verification_email(email, token, base_url)
+
+    # Redirect to verify-pending page
+    return RedirectResponse(url=f"/verify-pending?username={user.username}", status_code=303)
+
+
+@app.get("/verify-pending", response_class=HTMLResponse)
+async def verify_pending_page(request: Request, username: str = Query(None)):
+    return templates.TemplateResponse(
+        "verify_pending.html",
+        {"request": request, "username": username}
+    )
+
+
+@app.post("/resend-verification", response_class=HTMLResponse)
+async def resend_verification(
+    request: Request,
+    username: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    user = get_user_by_username(db, username)
+    if user and user.email and not user.email_verified:
+        token = create_verification_token(user.email)
+        base_url = get_base_url(request)
+        send_verification_email(user.email, token, base_url)
+
+    return templates.TemplateResponse(
+        "verify_pending.html",
+        {"request": request, "username": username, "message": "Bestätigungs-E-Mail wurde erneut gesendet."}
+    )
+
+
+@app.get("/verify-email", response_class=HTMLResponse)
+async def verify_email(
+    request: Request,
+    token: str = Query(...),
+    db: Session = Depends(get_db),
+):
+    email = verify_email_token(token)
+    if not email:
+        return templates.TemplateResponse(
+            "login.html",
+            {"request": request, "error": "Ungültiger oder abgelaufener Bestätigungslink."}
+        )
+
+    user = get_user_by_email(db, email)
+    if not user:
+        return templates.TemplateResponse(
+            "login.html",
+            {"request": request, "error": "Benutzer nicht gefunden."}
+        )
+
+    user.email_verified = True
+    db.commit()
+
+    # Auto-login after verification
     access_token = create_access_token(
         data={"sub": user.username},
         expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
@@ -201,11 +319,231 @@ async def register(
     return response
 
 
+@app.get("/change-password", response_class=HTMLResponse)
+async def change_password_page(request: Request, db: Session = Depends(get_db)):
+    user = await get_current_user(request, db)
+    if not user:
+        return RedirectResponse(url="/login", status_code=303)
+    return templates.TemplateResponse(
+        "change_password.html", {"request": request, "user": user}
+    )
+
+
+@app.post("/change-password", response_class=HTMLResponse)
+async def change_password(
+    request: Request,
+    current_password: str = Form(...),
+    new_password: str = Form(...),
+    new_password_confirm: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    user = await get_current_user(request, db)
+    if not user:
+        return RedirectResponse(url="/login", status_code=303)
+
+    if not verify_password(current_password, user.password_hash):
+        return templates.TemplateResponse(
+            "change_password.html",
+            {"request": request, "user": user, "error": "Aktuelles Passwort ist falsch"}
+        )
+
+    if len(new_password) < 6:
+        return templates.TemplateResponse(
+            "change_password.html",
+            {"request": request, "user": user, "error": "Neues Passwort muss mindestens 6 Zeichen lang sein"}
+        )
+
+    if new_password != new_password_confirm:
+        return templates.TemplateResponse(
+            "change_password.html",
+            {"request": request, "user": user, "error": "Passwörter stimmen nicht überein"}
+        )
+
+    user.password_hash = get_password_hash(new_password)
+    db.commit()
+
+    return templates.TemplateResponse(
+        "change_password.html",
+        {"request": request, "user": user, "success": "Passwort wurde erfolgreich geändert"}
+    )
+
+
+@app.get("/forgot-password", response_class=HTMLResponse)
+async def forgot_password_page(request: Request):
+    return templates.TemplateResponse("forgot_password.html", {"request": request})
+
+
+@app.post("/forgot-password", response_class=HTMLResponse)
+async def forgot_password(
+    request: Request,
+    email: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    user = get_user_by_email(db, email)
+    if user:
+        token = create_password_reset_token(email)
+        base_url = get_base_url(request)
+        send_password_reset_email(email, token, base_url)
+
+    # Always show success to prevent email enumeration
+    return templates.TemplateResponse(
+        "forgot_password.html",
+        {"request": request, "message": "Falls ein Konto mit dieser E-Mail existiert, wurde ein Reset-Link gesendet."}
+    )
+
+
+@app.get("/reset-password", response_class=HTMLResponse)
+async def reset_password_page(request: Request, token: str = Query(...)):
+    return templates.TemplateResponse(
+        "reset_password.html",
+        {"request": request, "token": token}
+    )
+
+
+@app.post("/reset-password", response_class=HTMLResponse)
+async def reset_password(
+    request: Request,
+    token: str = Form(...),
+    new_password: str = Form(...),
+    new_password_confirm: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    email = verify_password_reset_token(token)
+    if not email:
+        return templates.TemplateResponse(
+            "reset_password.html",
+            {"request": request, "token": token, "error": "Ungültiger oder abgelaufener Reset-Link."}
+        )
+
+    if len(new_password) < 6:
+        return templates.TemplateResponse(
+            "reset_password.html",
+            {"request": request, "token": token, "error": "Passwort muss mindestens 6 Zeichen lang sein"}
+        )
+
+    if new_password != new_password_confirm:
+        return templates.TemplateResponse(
+            "reset_password.html",
+            {"request": request, "token": token, "error": "Passwörter stimmen nicht überein"}
+        )
+
+    user = get_user_by_email(db, email)
+    if not user:
+        return templates.TemplateResponse(
+            "reset_password.html",
+            {"request": request, "token": token, "error": "Benutzer nicht gefunden."}
+        )
+
+    user.password_hash = get_password_hash(new_password)
+    db.commit()
+
+    return templates.TemplateResponse(
+        "login.html",
+        {"request": request, "error": "Passwort wurde zurückgesetzt. Du kannst dich jetzt einloggen."}
+    )
+
+
 @app.get("/logout")
 async def logout():
     response = RedirectResponse(url="/login", status_code=303)
     response.delete_cookie("access_token")
     return response
+
+
+# ==================== User API Key Routes ====================
+
+
+@app.get("/user/api-keys")
+async def get_user_api_keys(request: Request, db: Session = Depends(get_db)):
+    """Get masked API keys for the current user."""
+    user = await get_current_user(request, db)
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    keys = db.query(UserApiKey).filter(UserApiKey.user_id == user.id).all()
+    result = {}
+    for key in keys:
+        try:
+            plain = decrypt_api_key(key.api_key)
+            # Mask: show first 3 and last 3 chars
+            if len(plain) > 8:
+                masked = plain[:3] + "***" + plain[-3:]
+            else:
+                masked = "***"
+            result[key.service] = masked
+        except Exception:
+            result[key.service] = "***"
+
+    trial_days = get_trial_days_remaining(user)
+
+    return {
+        "keys": result,
+        "trial_days_remaining": trial_days
+    }
+
+
+@app.post("/user/api-keys")
+async def save_user_api_key(
+    request: Request,
+    key_request: ApiKeyRequest,
+    db: Session = Depends(get_db),
+):
+    """Save or update an API key for the current user."""
+    user = await get_current_user(request, db)
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    valid_services = ["deepl", "pons", "google"]
+    if key_request.service not in valid_services:
+        raise HTTPException(status_code=400, detail="Invalid service")
+
+    if not key_request.api_key.strip():
+        raise HTTPException(status_code=400, detail="API key cannot be empty")
+
+    encrypted = encrypt_api_key(key_request.api_key.strip())
+
+    # Upsert
+    existing = db.query(UserApiKey).filter(
+        UserApiKey.user_id == user.id,
+        UserApiKey.service == key_request.service
+    ).first()
+
+    if existing:
+        existing.api_key = encrypted
+        existing.created_at = datetime.utcnow()
+    else:
+        new_key = UserApiKey(
+            user_id=user.id,
+            service=key_request.service,
+            api_key=encrypted,
+        )
+        db.add(new_key)
+
+    db.commit()
+    return {"success": True}
+
+
+@app.delete("/user/api-keys/{service}")
+async def delete_user_api_key(
+    request: Request,
+    service: str,
+    db: Session = Depends(get_db),
+):
+    """Delete a user's API key for a service."""
+    user = await get_current_user(request, db)
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    key = db.query(UserApiKey).filter(
+        UserApiKey.user_id == user.id,
+        UserApiKey.service == service
+    ).first()
+
+    if key:
+        db.delete(key)
+        db.commit()
+
+    return {"success": True}
 
 
 # ==================== Translator Routes ====================
@@ -240,7 +578,9 @@ async def translate(
         translate_request.source_language,
         translate_request.target_languages,
         translate_request.enabled_services,
-        translate_request.explanation_services
+        translate_request.explanation_services,
+        user_id=user.id,
+        db=db,
     )
     return translations
 

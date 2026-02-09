@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean, UniqueConstraint
 from sqlalchemy.orm import relationship
 from datetime import datetime
 
@@ -11,9 +11,29 @@ class User(Base):
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String(50), unique=True, index=True, nullable=False)
     password_hash = Column(String(255), nullable=False)
+    email = Column(String(255), unique=True, nullable=True)
+    email_verified = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
 
     glossaries = relationship("Glossary", back_populates="user")
     glossary_entries = relationship("GlossaryEntry", back_populates="user")
+    api_keys = relationship("UserApiKey", back_populates="user")
+
+
+class UserApiKey(Base):
+    __tablename__ = "user_api_keys"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    service = Column(String(50), nullable=False)  # "deepl", "pons", "google"
+    api_key = Column(String(500), nullable=False)  # encrypted
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    user = relationship("User", back_populates="api_keys")
+
+    __table_args__ = (
+        UniqueConstraint("user_id", "service", name="uq_user_service"),
+    )
 
 
 class Glossary(Base):

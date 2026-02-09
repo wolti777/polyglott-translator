@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+
+{% block title %}E-Mail bestätigen - Glossarium{% endblock %}
+
+{% block content %}
+<div class="auth-container">
+    <div class="auth-card">
+        <h1 class="auth-title">Polyglot Translator</h1>
+        <h2>E-Mail bestätigen</h2>
+
+        {% if message %}
+        <div class="success-message">{{ message }}</div>
+        {% endif %}
+
+        <div class="verify-info">
+            <p>Wir haben dir eine Bestätigungs-E-Mail gesendet. Bitte klicke auf den Link in der E-Mail, um dein Konto zu aktivieren.</p>
+            <p class="verify-hint">Prüfe auch deinen Spam-Ordner.</p>
+        </div>
+
+        {% if username %}
+        <form method="POST" action="/resend-verification" class="auth-form">
+            <input type="hidden" name="username" value="{{ username }}">
+            <button type="submit" class="btn btn-outline" style="width:100%">Bestätigungs-E-Mail erneut senden</button>
+        </form>
+        {% endif %}
+
+        <p class="auth-link">
+            <a href="/login">Zurück zum Login</a>
+        </p>
+    </div>
+</div>
+{% endblock %}

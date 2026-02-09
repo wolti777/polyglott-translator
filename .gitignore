@@ -8,3 +8,7 @@ venv/
 dist/
 build/
 .DS_Store
+cert.pem
+key.pem
+cloudflared
+cloudflared.tgz

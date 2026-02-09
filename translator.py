@@ -1,7 +1,11 @@
 import os
 import requests
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import datetime, timedelta
+from typing import Optional
+
 from dotenv import load_dotenv
+from sqlalchemy.orm import Session
 
 # Load environment variables from .env file
 load_dotenv()
@@ -18,34 +22,129 @@ LANGUAGE_CODES = {
     "russian": "ru",
 }
 
-# API Keys from environment variables
-DEEPL_API_KEY = os.environ.get("DEEPL_API_KEY", "")
-PONS_API_SECRET = os.environ.get("PONS_API_SECRET", "")
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
-GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
+# Admin API Keys from environment variables (fallback)
+ADMIN_DEEPL_API_KEY = os.environ.get("DEEPL_API_KEY", "")
+ADMIN_PONS_API_SECRET = os.environ.get("PONS_API_SECRET", "")
+ADMIN_GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
+ADMIN_GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
+ADMIN_GOOGLE_TRANSLATE_API_KEY = os.environ.get("GOOGLE_TRANSLATE_API_KEY", "")
+
+# Trial period in days
+TRIAL_DAYS = 7
 
 
-def translate_google(text: str, source: str, target: str) -> str:
-    """Google Translate via free API."""
+def get_api_key(user_id: int, service: str, db: Session) -> Optional[str]:
+    """Resolve API key for a user and service.
+
+    1. User's own key in DB -> decrypt, return
+    2. User within trial period (7 days since created_at) -> admin key from .env
+    3. Otherwise -> None (service disabled)
+    """
+    from models import User, UserApiKey
+    from auth import decrypt_api_key
+
+    # 1. Check for user's own key
+    user_key = db.query(UserApiKey).filter(
+        UserApiKey.user_id == user_id,
+        UserApiKey.service == service
+    ).first()
+
+    if user_key:
+        try:
+            return decrypt_api_key(user_key.api_key)
+        except Exception:
+            return None
+
+    # 2. Check trial period
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        return None
+
+    # Admin user (id=1 or username "admin") always gets admin keys
+    if user.id == 1 or user.username == "admin":
+        return _get_admin_key(service)
+
+    created_at = user.created_at
+    if created_at is None:
+        # Legacy user without created_at - give them admin key
+        return _get_admin_key(service)
+
+    if datetime.utcnow() - created_at < timedelta(days=TRIAL_DAYS):
+        return _get_admin_key(service)
+
+    # 3. Trial expired, no own key
+    return None
+
+
+def get_trial_days_remaining(user) -> int:
+    """Return remaining trial days for a user. 0 if expired."""
+    if user.id == 1 or user.username == "admin":
+        return 999  # Admin always has access
+    if user.created_at is None:
+        return 0
+    elapsed = datetime.utcnow() - user.created_at
+    remaining = TRIAL_DAYS - elapsed.days
+    return max(0, remaining)
+
+
+def _get_admin_key(service: str) -> Optional[str]:
+    """Get admin key from .env for a service."""
+    mapping = {
+        "deepl": ADMIN_DEEPL_API_KEY,
+        "pons": ADMIN_PONS_API_SECRET,
+        "google": ADMIN_GOOGLE_TRANSLATE_API_KEY,
+        "groq": ADMIN_GROQ_API_KEY,
+        "gemini": ADMIN_GEMINI_API_KEY,
+    }
+    key = mapping.get(service, "")
+    return key if key else None
+
+
+def translate_google(text: str, source: str, target: str, api_key: str = None) -> str:
+    """Google Cloud Translation API (official) with free fallback."""
     try:
         if source == target:
             return text
-        url = "https://translate.googleapis.com/translate_a/single"
-        params = {
-            "client": "gtx",
-            "sl": source,
-            "tl": target,
-            "dt": "t",
-            "q": text
-        }
-        response = requests.get(url, params=params, timeout=5)
-        if response.status_code == 200:
-            result = response.json()
-            if result and result[0]:
-                return "".join([item[0] for item in result[0] if item[0]])
-        elif response.status_code == 429:
-            return "[Limit]"
-        return "[Error]"
+
+        if api_key:
+            # Official Google Cloud Translation API v2
+            url = "https://translation.googleapis.com/language/translate/v2"
+            params = {
+                "key": api_key,
+                "q": text,
+                "source": source,
+                "target": target,
+                "format": "text",
+            }
+            response = requests.post(url, params=params, timeout=8)
+            if response.status_code == 200:
+                data = response.json()
+                translations = data.get("data", {}).get("translations", [])
+                if translations:
+                    return translations[0]["translatedText"]
+            elif response.status_code == 403:
+                return "[No API Key]"
+            elif response.status_code == 429:
+                return "[Limit]"
+            return "[Error]"
+        else:
+            # Fallback: unofficial free endpoint
+            url = "https://translate.googleapis.com/translate_a/single"
+            params = {
+                "client": "gtx",
+                "sl": source,
+                "tl": target,
+                "dt": "t",
+                "q": text
+            }
+            response = requests.get(url, params=params, timeout=5)
+            if response.status_code == 200:
+                result = response.json()
+                if result and result[0]:
+                    return "".join([item[0] for item in result[0] if item[0]])
+            elif response.status_code == 429:
+                return "[Limit]"
+            return "[Error]"
     except Exception:
         return "[Error]"
 
@@ -149,13 +248,13 @@ def translate_reverso(text: str, source: str, target: str) -> str:
         return "[Error]"
 
 
-def translate_deepl(text: str, source: str, target: str) -> str:
+def translate_deepl(text: str, source: str, target: str, api_key: str = None) -> str:
     """DeepL Translation API (official, high quality)."""
     try:
         if source == target:
             return text
 
-        if not DEEPL_API_KEY:
+        if not api_key:
             return "[No API Key]"
 
         # DeepL source language codes
@@ -191,7 +290,7 @@ def translate_deepl(text: str, source: str, target: str) -> str:
         url = "https://api-free.deepl.com/v2/translate"
 
         headers = {
-            "Authorization": f"DeepL-Auth-Key {DEEPL_API_KEY}",
+            "Authorization": f"DeepL-Auth-Key {api_key}",
             "Content-Type": "application/json"
         }
 
@@ -244,7 +343,7 @@ def translate_lingva(text: str, source: str, target: str) -> str:
         return "[Error]"
 
 
-def translate_pons(text: str, source: str, target: str) -> str:
+def translate_pons(text: str, source: str, target: str, api_key: str = None) -> str:
     """PONS Dictionary API (high quality dictionary lookups)."""
     import re
     import html
@@ -252,7 +351,7 @@ def translate_pons(text: str, source: str, target: str) -> str:
         if source == target:
             return text
 
-        if not PONS_API_SECRET:
+        if not api_key:
             return "[No API Key]"
 
         # PONS uses language pair codes like "deen", "dees", "depl"
@@ -272,7 +371,6 @@ def translate_pons(text: str, source: str, target: str) -> str:
         tgt = lang_map.get(target, 'en')
 
         # PONS language pair format (source + target, alphabetically sorted in some cases)
-        # Common pairs: deen, dees, depl, enes, enpl, espl, defr, enfr, deit, deru, denl, deptr
         pair = f"{src}{tgt}"
 
         # Some pairs need to be reversed (PONS convention)
@@ -285,7 +383,7 @@ def translate_pons(text: str, source: str, target: str) -> str:
             pair = reverse_pair
 
         url = f"https://api.pons.com/v1/dictionary?l={pair}&q={requests.utils.quote(text)}"
-        headers = {"X-Secret": PONS_API_SECRET}
+        headers = {"X-Secret": api_key}
 
         response = requests.get(url, headers=headers, timeout=10)
         if response.status_code == 200:
@@ -302,27 +400,17 @@ def translate_pons(text: str, source: str, target: str) -> str:
                         for arab in arabs:
                             translations = arab.get("translations", [])
                             if translations:
-                                # Get the first translation of each meaning (the main one)
                                 target_html = translations[0].get("target", "")
-                                # Check if it's an example (skip examples)
                                 source_html = translations[0].get("source", "")
                                 if 'class="example"' in source_html:
                                     continue
-                                # Remove HTML tags
                                 clean = re.sub(r'<[^>]+>', '', target_html)
-                                # Decode HTML entities
                                 clean = html.unescape(clean)
-                                # Remove grammar annotations like "m <-(e)s, ...>" or "f <-, -n>"
                                 clean = re.sub(r'\s*[mfn]t?\s*<[^>]*>', '', clean)
-                                # Remove trailing gender markers
                                 clean = re.sub(r'\s+[fmn]t?\s*$', '', clean)
-                                # Remove [or ...] alternatives
                                 clean = re.sub(r'\s*\[or\s+[^\]]+\]', '', clean)
-                                # Remove style markers like "dated", "inf", "form"
                                 clean = re.sub(r'\s*(dated|inf|form)\s*', ' ', clean)
-                                # Clean up whitespace
                                 clean = ' '.join(clean.split())
-                                # Skip phrases and grammar constructs
                                 if 'sb' in clean or 'sth' in clean:
                                     continue
                                 if 'jdn' in clean or 'etw' in clean or 'dat' in clean or 'akk' in clean:
@@ -331,14 +419,12 @@ def translate_pons(text: str, source: str, target: str) -> str:
                                     continue
                                 if clean.startswith("sich "):
                                     continue
-                                # Add if not seen, not empty, and reasonable length
                                 if clean and clean.lower() not in seen and len(clean) < 25:
                                     seen.add(clean.lower())
                                     all_translations.append(clean)
 
                 if all_translations:
-                    # Return all unique translations separated by comma
-                    return ", ".join(all_translations[:8])  # Limit to 8 alternatives
+                    return ", ".join(all_translations[:8])
         elif response.status_code == 429:
             return "[Limit]"
         return "[Error]"
@@ -346,21 +432,19 @@ def translate_pons(text: str, source: str, target: str) -> str:
         return "[Error]"
 
 
-def get_pons_definition(text: str, lang_code: str) -> str:
+def get_pons_definition(text: str, lang_code: str, api_key: str = None) -> str:
     """Get word definition from PONS dictionary in the source language."""
     import re
     import html
 
-    if not PONS_API_SECRET:
+    if not api_key:
         return ""
 
     try:
-        # PONS needs a language pair
         if lang_code == 'de':
             pair = 'deen'
         elif lang_code == 'en':
-            pair = 'enes' if lang_code == 'en' else 'deen'
-            pair = 'deen'  # English words in DE-EN dictionary
+            pair = 'deen'
         elif lang_code == 'es':
             pair = 'dees'
         elif lang_code == 'pl':
@@ -369,7 +453,7 @@ def get_pons_definition(text: str, lang_code: str) -> str:
             pair = 'deen'
 
         url = f"https://api.pons.com/v1/dictionary?l={pair}&q={requests.utils.quote(text)}"
-        headers = {"X-Secret": PONS_API_SECRET}
+        headers = {"X-Secret": api_key}
 
         response = requests.get(url, headers=headers, timeout=10)
         if response.status_code == 200:
@@ -384,7 +468,6 @@ def get_pons_definition(text: str, lang_code: str) -> str:
                         wordclass = rom.get("wordclass", "")
                         headword_full = rom.get("headword_full", "")
 
-                        # Clean headword_full - this contains grammatical info
                         if headword_full:
                             clean_hw = re.sub(r'<[^>]+>', '', headword_full)
                             clean_hw = html.unescape(clean_hw).strip()
@@ -395,20 +478,16 @@ def get_pons_definition(text: str, lang_code: str) -> str:
                         for arab in arabs[:3]:
                             header = arab.get("header", "")
                             if header:
-                                # Header contains context/meaning in source language
                                 header = re.sub(r'<[^>]+>', '', header)
                                 header = html.unescape(header).strip()
-                                # Remove numbering like "1. " or "2. "
                                 header = re.sub(r'^\d+\.\s*', '', header)
                                 if header and len(header) > 2:
                                     definitions.append(header)
 
                 if definitions:
-                    # Return unique definitions
                     unique = []
                     for d in definitions:
                         d = d.strip()
-                        # Remove trailing colons
                         d = re.sub(r':$', '', d).strip()
                         if d and len(d) > 2 and d not in unique and len(unique) < 4:
                             unique.append(d)
@@ -419,9 +498,9 @@ def get_pons_definition(text: str, lang_code: str) -> str:
         return ""
 
 
-def get_groq_explanation(text: str, lang_code: str) -> str:
+def get_groq_explanation(text: str, lang_code: str, api_key: str = None) -> str:
     """Get AI explanation using Groq (LLaMA)."""
-    if not GROQ_API_KEY:
+    if not api_key:
         return ""
 
     try:
@@ -441,7 +520,7 @@ def get_groq_explanation(text: str, lang_code: str) -> str:
         url = "https://api.groq.com/openai/v1/chat/completions"
 
         headers = {
-            "Authorization": f"Bearer {GROQ_API_KEY}",
+            "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json"
         }
 
@@ -473,16 +552,20 @@ def translate_to_all_languages(
     source_lang: str = None,
     target_languages: list = None,
     enabled_services: dict = None,
-    explanation_services: dict = None
+    explanation_services: dict = None,
+    user_id: int = None,
+    db: Session = None
 ) -> dict:
     """Translate to all target languages using multiple sources in parallel.
 
     Args:
         text: The text to translate
         source_lang: Source language name (e.g., 'german')
-        target_languages: List of target language names (e.g., ['english', 'spanish', 'french'])
-        enabled_services: Dict of service names to booleans (e.g., {'DeepL': True, 'PONS': False})
-        explanation_services: Dict of explanation services (e.g., {'PONS Definition': True, 'Groq AI': True})
+        target_languages: List of target language names
+        enabled_services: Dict of service names to booleans
+        explanation_services: Dict of explanation services
+        user_id: Current user's ID for key resolution
+        db: Database session for key resolution
     """
 
     # Default to german if no source language provided
@@ -495,8 +578,25 @@ def translate_to_all_languages(
     if target_languages is None:
         target_languages = [lang for lang in ["spanish", "german", "polish", "english"] if lang != source_lang]
     else:
-        # Filter out source language from targets
         target_languages = [lang for lang in target_languages if lang != source_lang]
+
+    # Resolve per-user API keys
+    deepl_key = None
+    pons_key = None
+    google_key = None
+    groq_key = None
+
+    if user_id and db:
+        deepl_key = get_api_key(user_id, "deepl", db)
+        pons_key = get_api_key(user_id, "pons", db)
+        google_key = get_api_key(user_id, "google", db)
+        groq_key = get_api_key(user_id, "groq", db)
+    else:
+        # Fallback to admin keys (backward compatibility)
+        deepl_key = ADMIN_DEEPL_API_KEY or None
+        pons_key = ADMIN_PONS_API_SECRET or None
+        google_key = ADMIN_GOOGLE_TRANSLATE_API_KEY or None
+        groq_key = ADMIN_GROQ_API_KEY or None
 
     result = {
         "source_language": source_lang,
@@ -504,10 +604,11 @@ def translate_to_all_languages(
         "translations": {}
     }
 
+    # Build translator map with resolved keys
     all_translators = {
-        "DeepL": translate_deepl,
-        "PONS": translate_pons,
-        "Google": translate_google,
+        "DeepL": lambda t, s, tgt: translate_deepl(t, s, tgt, deepl_key),
+        "PONS": lambda t, s, tgt: translate_pons(t, s, tgt, pons_key),
+        "Google": lambda t, s, tgt: translate_google(t, s, tgt, google_key),
         "Lingva": translate_lingva,
     }
 
@@ -533,9 +634,9 @@ def translate_to_all_languages(
         pons_future = None
         groq_future = None
         if pons_explanation_enabled:
-            pons_future = executor.submit(get_pons_definition, text, source_code)
+            pons_future = executor.submit(get_pons_definition, text, source_code, pons_key)
         if groq_explanation_enabled:
-            groq_future = executor.submit(get_groq_explanation, text, source_code)
+            groq_future = executor.submit(get_groq_explanation, text, source_code, groq_key)
 
         for target_lang in target_languages:
             target_code = LANGUAGE_CODES.get(target_lang, "en")

@@ -178,6 +178,41 @@
                             </label>
                         </div>
                     </div>
+                    <div class="settings-divider"></div>
+                    <div class="settings-section">
+                        <h3>API-SCHLÜSSEL</h3>
+                        <p class="settings-hint" id="api-keys-hint">Eigene API-Keys eintragen (optional)</p>
+                        <div class="api-keys-fields">
+                            <div class="api-key-row">
+                                <label class="api-key-label">DeepL</label>
+                                <div class="api-key-input-wrapper">
+                                    <input type="text" id="apikey-deepl" class="api-key-input" placeholder="Kein Key">
+                                    <button class="api-key-delete" data-service="deepl" title="Key löschen">&times;</button>
+                                </div>
+                            </div>
+                            <div class="api-key-row">
+                                <label class="api-key-label">PONS</label>
+                                <div class="api-key-input-wrapper">
+                                    <input type="text" id="apikey-pons" class="api-key-input" placeholder="Kein Key">
+                                    <button class="api-key-delete" data-service="pons" title="Key löschen">&times;</button>
+                                </div>
+                            </div>
+                            <div class="api-key-row">
+                                <label class="api-key-label">Google</label>
+                                <div class="api-key-input-wrapper">
+                                    <input type="text" id="apikey-google" class="api-key-input" placeholder="Kein Key">
+                                    <button class="api-key-delete" data-service="google" title="Key löschen">&times;</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="settings-divider"></div>
+                    <div class="settings-section">
+                        <h3>KONTO</h3>
+                        <div class="settings-account-links">
+                            <a href="/change-password" class="btn btn-outline settings-account-btn">Passwort ändern</a>
+                        </div>
+                    </div>
                 </div>
                 <div class="settings-footer">
                     <button id="settings-cancel" class="btn btn-outline">Abbrechen</button>
@@ -381,6 +416,87 @@
         });
     }
 
+    // ==================== API Keys ====================
+
+    async function loadApiKeys() {
+        try {
+            const response = await fetch('/user/api-keys');
+            if (response.ok) {
+                const data = await response.json();
+                const keys = data.keys || {};
+                const trialDays = data.trial_days_remaining || 0;
+
+                // Update input placeholders/values
+                ['deepl', 'pons', 'google'].forEach(service => {
+                    const input = document.getElementById('apikey-' + service);
+                    if (keys[service]) {
+                        input.value = '';
+                        input.placeholder = keys[service];
+                        input.dataset.hasKey = 'true';
+                    } else {
+                        input.value = '';
+                        if (trialDays > 0) {
+                            input.placeholder = 'Admin-Key aktiv (noch ' + trialDays + ' Tage)';
+                        } else {
+                            input.placeholder = 'Kein Key';
+                        }
+                        input.dataset.hasKey = 'false';
+                    }
+                });
+
+                // Update hint text
+                const hint = document.getElementById('api-keys-hint');
+                if (trialDays > 0 && trialDays < 999) {
+                    hint.textContent = 'Probezeit: noch ' + trialDays + ' Tage mit Admin-Keys. Danach eigene Keys benötigt.';
+                } else if (trialDays >= 999) {
+                    hint.textContent = 'Admin-Konto: Admin-Keys werden immer verwendet (Fallback).';
+                } else {
+                    hint.textContent = 'Eigene API-Keys eintragen, um Übersetzungsdienste zu nutzen.';
+                }
+            }
+        } catch (e) {
+            console.error('Error loading API keys:', e);
+        }
+    }
+
+    async function saveApiKey(service, apiKey) {
+        try {
+            const response = await fetch('/user/api-keys', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ service: service, api_key: apiKey })
+            });
+            return response.ok;
+        } catch (e) {
+            console.error('Error saving API key:', e);
+            return false;
+        }
+    }
+
+    async function deleteApiKey(service) {
+        try {
+            const response = await fetch('/user/api-keys/' + service, { method: 'DELETE' });
+            return response.ok;
+        } catch (e) {
+            console.error('Error deleting API key:', e);
+            return false;
+        }
+    }
+
+    // Delete button handlers
+    document.querySelectorAll('.api-key-delete').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+            e.preventDefault();
+            const service = btn.dataset.service;
+            if (await deleteApiKey(service)) {
+                const input = document.getElementById('apikey-' + service);
+                input.value = '';
+                input.dataset.hasKey = 'false';
+                loadApiKeys();
+            }
+        });
+    });
+
     function openSettingsModal() {
         populateLanguageSelects();
 
@@ -391,6 +507,9 @@
         document.getElementById('service-lingva').checked = appSettings.translationServices['Lingva'] === true;
         document.getElementById('explain-pons').checked = appSettings.explanationServices['PONS Definition'] !== false;
         document.getElementById('explain-groq').checked = appSettings.explanationServices['Groq AI'] !== false;
+
+        // Load API keys
+        loadApiKeys();
 
         settingsModal.style.display = 'flex';
     }
@@ -445,6 +564,19 @@
         updateLanguageMappings();
         updateLanguageDropdowns();
         updateCameraLangButtons();
+
+        // Save API keys (only non-empty new values)
+        const apiKeyPromises = [];
+        ['deepl', 'pons', 'google'].forEach(service => {
+            const input = document.getElementById('apikey-' + service);
+            const val = input.value.trim();
+            if (val) {
+                apiKeyPromises.push(saveApiKey(service, val));
+            }
+        });
+        if (apiKeyPromises.length > 0) {
+            Promise.all(apiKeyPromises);
+        }
 
         closeSettingsModal();
     }
