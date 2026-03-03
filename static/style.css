@@ -1227,6 +1227,12 @@ body {
     border-right-width: 4px;
 }
 
+.camera-bottom-scroll {
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    max-height: 50vh;
+}
+
 .camera-result {
     padding: 0.75rem 1rem;
     background: rgba(0, 0, 0, 0.85);

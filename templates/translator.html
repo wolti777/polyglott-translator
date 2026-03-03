@@ -100,21 +100,23 @@
                     </div>
                 </div>
             </div>
-            <div class="camera-result">
-                <div class="scanned-words-label">Erkannte Wörter (tippe zum Auswählen):</div>
-                <div id="scanned-words" class="scanned-words"></div>
-                <div class="selected-preview">
-                    <span class="selected-label">Auswahl:</span>
-                    <span id="selected-preview-text">---</span>
+            <div class="camera-bottom-scroll">
+                <div class="camera-result">
+                    <div class="scanned-words-label">Erkannte Wörter (tippe zum Auswählen):</div>
+                    <div id="scanned-words" class="scanned-words"></div>
+                    <div class="selected-preview">
+                        <span class="selected-label">Auswahl:</span>
+                        <span id="selected-preview-text">---</span>
+                    </div>
                 </div>
-            </div>
-            <div class="camera-actions">
-                <div class="camera-lang-label">Übersetzen von:</div>
-                <div class="camera-lang-buttons">
-                    <!-- Populated dynamically based on settings -->
+                <div class="camera-actions">
+                    <div class="camera-lang-label">Übersetzen von:</div>
+                    <div class="camera-lang-buttons">
+                        <!-- Populated dynamically based on settings -->
+                    </div>
                 </div>
+                <div id="camera-status" class="camera-status">Wörter scannen, auswählen, dann Quellsprache wählen</div>
             </div>
-            <div id="camera-status" class="camera-status">Wörter scannen, auswählen, dann Quellsprache wählen</div>
         </div>
 
         <!-- Speech Overlay -->
@@ -1539,6 +1541,11 @@
     const speechStatus = document.getElementById('speech-status');
 
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    // iOS Chrome/Firefox don't support SpeechRecognition (only Safari on iOS does)
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    const isIOSSafari = isIOS && /Safari/.test(navigator.userAgent) && !/CriOS|FxiOS|OPiOS/.test(navigator.userAgent);
+    const speechSupported = !!SpeechRecognition && (!isIOS || isIOSSafari);
+
     let recognition = null;
     let isRecording = false;
     let speechWordsList = [];
@@ -1643,8 +1650,11 @@
     }
 
     function startRecognition() {
-        if (!SpeechRecognition) {
-            speechStatus.textContent = 'Spracheingabe wird von diesem Browser nicht unterstützt.';
+        if (!speechSupported) {
+            speechHint.textContent = isIOS
+                ? 'Spracheingabe nur in Safari. Bitte Safari verwenden.'
+                : 'Spracheingabe nicht unterstützt.';
+            speechRecordBtn.classList.remove('recording');
             return;
         }
 
@@ -1720,8 +1730,16 @@
         speechPreviewText.textContent = '---';
         updateSpeechLangButtons();
         speechOverlay.style.display = 'flex';
-        // Auto-start recording
-        setTimeout(() => startRecognition(), 300);
+        if (speechSupported) {
+            speechHint.textContent = 'Aufnahme läuft...';
+            speechRecordBtn.classList.add('recording');
+            setTimeout(() => startRecognition(), 300);
+        } else {
+            speechHint.textContent = isIOS
+                ? 'Spracheingabe nur in Safari. Bitte Safari verwenden.'
+                : 'Spracheingabe nicht unterstützt.';
+            speechRecordBtn.classList.remove('recording');
+        }
     }
 
     function closeSpeech() {
