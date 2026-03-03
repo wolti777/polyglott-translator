@@ -4,16 +4,17 @@
 
 {% block content %}
 <div class="app-container">
-    <header class="app-header">
-        <div class="logo">
-            <span class="logo-icon">📝</span>
-            <h1>Vokabeltest</h1>
-        </div>
-        <div class="header-actions">
-            <a href="/translator" class="btn btn-outline export-btn">Glossar</a>
-            <a href="/glossary-list" class="btn btn-outline export-btn">Liste</a>
+    <header class="app-header-bar">
+        <div class="header-left">
+            <a href="/translator"><img src="/static/logo.png" alt="Glossarium" class="header-logo"></a>
         </div>
     </header>
+
+    <nav class="app-tab-bar">
+        <a href="/translator" class="tab-link">Glossar</a>
+        <a href="/glossary-list" class="tab-link">Liste</a>
+        <a href="/vocab-test" class="tab-link active">Test</a>
+    </nav>
 
     <main class="translator-main">
         <div class="vocab-config">
@@ -76,7 +77,7 @@
         </div>
 
         <footer class="app-footer">
-            <a href="/logout" class="btn btn-outline">Logout</a>
+            <a href="/logout" class="logout-link">Logout</a>
         </footer>
     </main>
 </div>

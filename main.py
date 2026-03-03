@@ -156,6 +156,7 @@ async def login(
     request: Request,
     username: str = Form(...),
     password: str = Form(...),
+    remember_me: str = Form(None),
     db: Session = Depends(get_db),
 ):
     user = authenticate_user(db, username, password)
@@ -168,9 +169,14 @@ async def login(
     # Email verification is no longer required for login
     # Users can log in and use the app, but unverified email is shown as a hint
 
+    if remember_me:
+        expiry = timedelta(days=30)
+    else:
+        expiry = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+
     access_token = create_access_token(
         data={"sub": user.username},
-        expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
+        expires_delta=expiry,
     )
 
     response = RedirectResponse(url="/translator", status_code=303)
@@ -178,7 +184,7 @@ async def login(
         key="access_token",
         value=access_token,
         httponly=True,
-        max_age=ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        max_age=int(expiry.total_seconds()),
         samesite="lax",
     )
     return response

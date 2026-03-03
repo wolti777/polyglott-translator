@@ -4,21 +4,14 @@
 
 {% block content %}
 <div class="app-container">
-    <header class="app-header">
-        <div class="logo">
-            <span class="logo-icon">📚</span>
-            <h1>Glossarium</h1>
-        </div>
-        <div class="header-actions">
-            <a href="/glossary-list" class="btn btn-outline export-btn" title="Vokabelliste">Liste</a>
-            <a href="/vocab-test" class="btn btn-outline export-btn" title="Vokabeltest">Test</a>
-            <button id="settings-btn" class="btn btn-outline settings-btn" title="Einstellungen">⚙️</button>
-            <a href="#" id="export-glossary-btn" class="btn btn-outline export-btn" title="Glossar exportieren">Export</a>
+    <header class="app-header-bar">
+        <div class="header-left">
+            <img src="/static/logo.png" alt="Glossarium" class="header-logo">
             <div class="glossary-wrapper">
-                <button class="btn btn-secondary glossary-btn">
+                <button class="glossary-selector-btn" id="glossary-menu-btn" title="Glossar wechseln">
                     <span id="selected-glossary-name">Hauptglossar</span>
+                    <span class="dropdown-arrow">▼</span>
                 </button>
-                <button class="btn btn-secondary glossary-toggle" id="glossary-menu-btn" title="Glossar wechseln">▼</button>
                 <div class="glossary-menu" id="glossary-dropdown">
                     <div class="glossary-menu-header">Glossar auswählen</div>
                     <div class="glossary-list" id="glossary-list"></div>
@@ -29,29 +22,55 @@
                 </div>
             </div>
         </div>
+        <div class="header-right">
+            <button id="settings-btn" class="settings-icon-btn" title="Einstellungen">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="3"></circle>
+                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                </svg>
+            </button>
+        </div>
     </header>
+
+    <nav class="app-tab-bar">
+        <a href="/glossary-list" class="tab-link">Liste</a>
+        <a href="/vocab-test" class="tab-link">Test</a>
+        <a href="#" id="export-glossary-btn" class="tab-link">Export</a>
+    </nav>
 
     <main class="translator-main">
         <div class="input-section">
-            <div class="input-row">
-                <textarea id="input-text" placeholder="Text eingeben..." rows="3"></textarea>
-                <div class="input-actions">
-                    <button id="camera-btn" class="camera-btn" title="Kamera öffnen">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
-                            <circle cx="12" cy="13" r="4"></circle>
-                        </svg>
-                    </button>
-                    <div class="language-selector" id="language-selector">
-                        <span id="selected-language-flag">🇩🇪</span>
-                        <span class="dropdown-arrow">▼</span>
-                        <div class="language-dropdown" id="language-dropdown">
-                            <!-- Populated dynamically based on settings -->
-                        </div>
+            <textarea id="input-text" placeholder="Text eingeben..." rows="3"></textarea>
+            <div class="input-bottom-row">
+                <div class="language-selector" id="language-selector">
+                    <span id="selected-language-flag">🇩🇪</span>
+                    <span class="dropdown-arrow">▼</span>
+                    <div class="language-dropdown" id="language-dropdown">
+                        <!-- Populated dynamically based on settings -->
                     </div>
                 </div>
+                <button id="camera-btn" class="input-action-btn" title="Kamera öffnen">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+                        <circle cx="12" cy="13" r="4"></circle>
+                    </svg>
+                </button>
+                <button id="mic-btn" class="input-action-btn" title="Spracheingabe">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+                        <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                        <line x1="12" y1="19" x2="12" y2="23"></line>
+                        <line x1="8" y1="23" x2="16" y2="23"></line>
+                    </svg>
+                </button>
+                <button id="translate-btn" class="input-action-btn translate-btn">
+                    <span id="selected-language-text" style="display:none">German</span>
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                        <polyline points="12 5 19 12 12 19"></polyline>
+                    </svg>
+                </button>
             </div>
-            <button id="translate-btn" class="btn btn-primary btn-large">Übersetzen von&nbsp;<span id="selected-language-text">German</span></button>
         </div>
 
         <!-- Camera Overlay -->
@@ -96,6 +115,38 @@
                 </div>
             </div>
             <div id="camera-status" class="camera-status">Wörter scannen, auswählen, dann Quellsprache wählen</div>
+        </div>
+
+        <!-- Speech Overlay -->
+        <div id="speech-overlay" class="camera-overlay" style="display: none;">
+            <div class="camera-header">
+                <span>Spracheingabe</span>
+                <button id="speech-close" class="camera-close-btn">✕</button>
+            </div>
+            <div class="speech-scroll">
+                <div class="speech-chips-area">
+                    <div class="scanned-words-label">Erkannte Wörter (tippe zum Auswählen):</div>
+                    <div id="speech-words" class="scanned-words"></div>
+                </div>
+                <div class="speech-lang-row">
+                    <div class="speech-lang-buttons camera-lang-buttons"></div>
+                </div>
+                <div class="speech-mic-area">
+                    <button id="speech-record-btn" class="speech-record-btn recording">
+                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+                            <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                            <line x1="12" y1="19" x2="12" y2="23"></line>
+                            <line x1="8" y1="23" x2="16" y2="23"></line>
+                        </svg>
+                    </button>
+                    <div id="speech-hint" class="speech-hint">Aufnahme läuft...</div>
+                </div>
+                <div class="selected-preview" style="padding: 0 1rem;">
+                    <span class="selected-label">Auswahl:</span>
+                    <span id="speech-preview-text">---</span>
+                </div>
+            </div>
         </div>
 
         <!-- Settings Modal -->
@@ -258,7 +309,7 @@
         </div>
 
         <footer class="app-footer">
-            <a href="/logout" class="btn btn-outline">Logout</a>
+            <a href="/logout" class="logout-link">Logout</a>
         </footer>
     </main>
 </div>
@@ -600,6 +651,7 @@
         updateLanguageMappings();
         updateLanguageDropdowns();
         updateCameraLangButtons();
+        if (typeof updateSpeechLangButtons === 'function') updateSpeechLangButtons();
 
         // Save API keys (only non-empty new values)
         const apiKeyPromises = [];
@@ -1146,7 +1198,7 @@
         }
 
         translateBtn.disabled = true;
-        translateBtn.textContent = 'Translating...';
+        translateBtn.querySelector('svg').style.opacity = '0.3';
 
         try {
             // Build target languages (all except source)
@@ -1199,7 +1251,7 @@
             alert('An error occurred. Please try again.');
         } finally {
             translateBtn.disabled = false;
-            translateBtn.textContent = 'Translate';
+            translateBtn.querySelector('svg').style.opacity = '1';
         }
     });
 
@@ -1472,6 +1524,221 @@
             cameraStatus.textContent = 'Fehler bei der Texterkennung. Versuche es erneut.';
         } finally {
             cameraCapture.disabled = false;
+        }
+    });
+
+    // ==================== Speech Recognition ====================
+
+    const micBtn = document.getElementById('mic-btn');
+    const speechOverlay = document.getElementById('speech-overlay');
+    const speechClose = document.getElementById('speech-close');
+    const speechRecordBtn = document.getElementById('speech-record-btn');
+    const speechHint = document.getElementById('speech-hint');
+    const speechWordsContainer = document.getElementById('speech-words');
+    const speechPreviewText = document.getElementById('speech-preview-text');
+    const speechStatus = document.getElementById('speech-status');
+
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    let recognition = null;
+    let isRecording = false;
+    let speechWordsList = [];
+    let selectedSpeechWords = [];
+
+    const speechLocales = {
+        'german': 'de-DE',
+        'english': 'en-US',
+        'spanish': 'es-ES',
+        'polish': 'pl-PL',
+        'french': 'fr-FR',
+        'italian': 'it-IT',
+        'portuguese': 'pt-PT',
+        'dutch': 'nl-NL',
+        'russian': 'ru-RU',
+    };
+
+    // Populate speech language buttons (same pattern as camera)
+    function updateSpeechLangButtons() {
+        const container = document.querySelector('.speech-lang-buttons');
+        container.innerHTML = '';
+        appSettings.languages.forEach(lang => {
+            const langData = allLanguages[lang];
+            if (langData) {
+                const btn = document.createElement('button');
+                btn.className = 'lang-btn';
+                if (lang === selectedLanguage) btn.classList.add('active-lang');
+                btn.dataset.lang = lang;
+                btn.textContent = langData.flag;
+                btn.addEventListener('click', () => {
+                    // If same language and words selected and not recording -> translate
+                    if (lang === selectedLanguage && selectedSpeechWords.length > 0 && !isRecording) {
+                        inputText.value = selectedSpeechWords.join(' ');
+                        closeSpeech();
+                        setTimeout(() => translateBtn.click(), 100);
+                        return;
+                    }
+
+                    // Switch recognition language
+                    selectedLanguage = lang;
+                    localStorage.setItem(storageKey('selectedLanguage'), selectedLanguage);
+                    updateLanguageDisplay(selectedLanguage);
+
+                    // Update highlight
+                    container.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active-lang'));
+                    btn.classList.add('active-lang');
+
+                    // If recording, restart with new language
+                    if (isRecording) {
+                        stopRecognition();
+                        setTimeout(() => startRecognition(), 300);
+                    }
+
+                    // If words selected and not recording -> translate
+                    if (selectedSpeechWords.length > 0 && !isRecording) {
+                        inputText.value = selectedSpeechWords.join(' ');
+                        closeSpeech();
+                        setTimeout(() => translateBtn.click(), 100);
+                    }
+                });
+                container.appendChild(btn);
+            }
+        });
+    }
+
+    function updateSpeechPreview() {
+        const langBtns = document.querySelectorAll('.speech-lang-buttons .lang-btn');
+        if (selectedSpeechWords.length === 0) {
+            speechPreviewText.textContent = '---';
+            langBtns.forEach(btn => btn.disabled = true);
+        } else {
+            speechPreviewText.textContent = selectedSpeechWords.join(' ');
+            langBtns.forEach(btn => btn.disabled = false);
+        }
+    }
+
+    function renderSpeechWords() {
+        speechWordsContainer.innerHTML = '';
+        // Scale chip size: large when few, smaller when many
+        const count = speechWordsList.length;
+        const isCompact = count > 6;
+        speechWordsContainer.classList.toggle('compact', isCompact);
+
+        speechWordsList.forEach(word => {
+            const chip = document.createElement('span');
+            chip.className = 'word-chip speech-chip';
+            chip.textContent = word;
+            if (selectedSpeechWords.includes(word)) chip.classList.add('selected');
+            chip.addEventListener('click', () => {
+                if (isRecording) stopRecognition();
+                if (chip.classList.contains('selected')) {
+                    chip.classList.remove('selected');
+                    selectedSpeechWords = selectedSpeechWords.filter(w => w !== word);
+                } else {
+                    chip.classList.add('selected');
+                    selectedSpeechWords.push(word);
+                }
+                updateSpeechPreview();
+            });
+            speechWordsContainer.appendChild(chip);
+        });
+    }
+
+    function startRecognition() {
+        if (!SpeechRecognition) {
+            speechStatus.textContent = 'Spracheingabe wird von diesem Browser nicht unterstützt.';
+            return;
+        }
+
+        recognition = new SpeechRecognition();
+        recognition.lang = speechLocales[selectedLanguage] || 'de-DE';
+        recognition.interimResults = true;
+        recognition.continuous = true;
+
+        let silenceTimer = null;
+
+        function resetSilenceTimer() {
+            clearTimeout(silenceTimer);
+            silenceTimer = setTimeout(() => {
+                stopRecognition();
+            }, 5000);
+        }
+
+        recognition.onstart = () => {
+            isRecording = true;
+            speechRecordBtn.classList.add('recording');
+            speechHint.textContent = 'Aufnahme läuft...';
+            resetSilenceTimer();
+        };
+
+        recognition.onresult = (e) => {
+            resetSilenceTimer();
+            for (let i = 0; i < e.results.length; i++) {
+                if (e.results[i].isFinal) {
+                    const words = e.results[i][0].transcript.split(/\s+/).filter(w => w.length > 0);
+                    words.forEach(word => {
+                        if (!speechWordsList.includes(word)) {
+                            speechWordsList.push(word);
+                        }
+                    });
+                    renderSpeechWords();
+                }
+            }
+        };
+
+        recognition.onerror = (e) => {
+            console.error('Speech recognition error:', e.error);
+            clearTimeout(silenceTimer);
+            if (e.error === 'not-allowed') {
+                speechHint.textContent = 'Mikrofon-Zugriff verweigert.';
+            } else if (e.error === 'no-speech') {
+                speechHint.textContent = 'Nichts erkannt.';
+            }
+            stopRecognition();
+        };
+
+        recognition.onend = () => {
+            clearTimeout(silenceTimer);
+            stopRecognition();
+        };
+
+        recognition.start();
+    }
+
+    function stopRecognition() {
+        isRecording = false;
+        speechRecordBtn.classList.remove('recording');
+        speechHint.textContent = 'Tippe für weitere Aufnahme';
+        if (recognition) {
+            try { recognition.stop(); } catch (e) {}
+            recognition = null;
+        }
+    }
+
+    function openSpeech() {
+        speechWordsList = [];
+        selectedSpeechWords = [];
+        speechWordsContainer.innerHTML = '<span class="no-words">---</span>';
+        speechPreviewText.textContent = '---';
+        updateSpeechLangButtons();
+        speechOverlay.style.display = 'flex';
+        // Auto-start recording
+        setTimeout(() => startRecognition(), 300);
+    }
+
+    function closeSpeech() {
+        stopRecognition();
+        speechOverlay.style.display = 'none';
+        speechWordsList = [];
+        selectedSpeechWords = [];
+    }
+
+    micBtn.addEventListener('click', openSpeech);
+    speechClose.addEventListener('click', closeSpeech);
+
+    speechRecordBtn.addEventListener('click', () => {
+        if (isRecording) {
+            stopRecognition();
+        } else {
+            startRecognition();
         }
     });
 
