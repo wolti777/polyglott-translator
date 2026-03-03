@@ -729,11 +729,16 @@
                 btn.disabled = true;
                 btn.textContent = langData.flag;
                 btn.addEventListener('click', () => {
-                    if (selectedWordsList.length > 0) {
+                    // Auto-select if only 1 chip and nothing selected
+                    let wordsToTranslate = selectedWordsList;
+                    if (wordsToTranslate.length === 0 && scannedWordsList.length === 1) {
+                        wordsToTranslate = [scannedWordsList[0]];
+                    }
+                    if (wordsToTranslate.length > 0) {
                         selectedLanguage = lang;
                         localStorage.setItem(storageKey('selectedLanguage'), selectedLanguage);
                         updateLanguageDisplay(selectedLanguage);
-                        inputText.value = selectedWordsList.join(' ');
+                        inputText.value = wordsToTranslate.join(' ');
                         closeCamera();
                         setTimeout(() => {
                             translateBtn.click();
@@ -1315,8 +1320,9 @@
     function updateSelectedPreview() {
         const cameraLangButtons = document.querySelectorAll('.camera-lang-buttons .lang-btn');
         if (selectedWordsList.length === 0) {
-            selectedPreviewText.textContent = '---';
-            cameraLangButtons.forEach(btn => btn.disabled = true);
+            selectedPreviewText.textContent = scannedWordsList.length === 1 ? scannedWordsList[0] : '---';
+            // Enable buttons if only 1 chip (auto-select)
+            cameraLangButtons.forEach(btn => btn.disabled = scannedWordsList.length !== 1);
         } else {
             selectedPreviewText.textContent = selectedWordsList.join(' ');
             cameraLangButtons.forEach(btn => btn.disabled = false);
@@ -1592,9 +1598,15 @@
                 btn.dataset.lang = lang;
                 btn.textContent = langData.flag;
                 btn.addEventListener('click', () => {
-                    // If same language and words selected and not recording -> translate
-                    if (lang === selectedLanguage && selectedSpeechWords.length > 0 && !isRecording) {
-                        inputText.value = selectedSpeechWords.join(' ');
+                    // Auto-select if only 1 chip and nothing selected
+                    let wordsToUse = selectedSpeechWords;
+                    if (wordsToUse.length === 0 && speechWordsList.length === 1) {
+                        wordsToUse = [speechWordsList[0]];
+                    }
+
+                    // If same language and words available and not recording -> translate
+                    if (lang === selectedLanguage && wordsToUse.length > 0 && !isRecording) {
+                        inputText.value = wordsToUse.join(' ');
                         closeSpeech();
                         setTimeout(() => translateBtn.click(), 100);
                         return;
@@ -1615,9 +1627,9 @@
                         setTimeout(() => startRecognition(), 300);
                     }
 
-                    // If words selected and not recording -> translate
-                    if (selectedSpeechWords.length > 0 && !isRecording) {
-                        inputText.value = selectedSpeechWords.join(' ');
+                    // If words available and not recording -> translate
+                    if (wordsToUse.length > 0 && !isRecording) {
+                        inputText.value = wordsToUse.join(' ');
                         closeSpeech();
                         setTimeout(() => translateBtn.click(), 100);
                     }
@@ -1630,8 +1642,9 @@
     function updateSpeechPreview() {
         const langBtns = document.querySelectorAll('.speech-lang-buttons .lang-btn');
         if (selectedSpeechWords.length === 0) {
-            speechPreviewText.textContent = '---';
-            langBtns.forEach(btn => btn.disabled = true);
+            speechPreviewText.textContent = speechWordsList.length === 1 ? speechWordsList[0] : '---';
+            // Enable buttons if only 1 chip (auto-select)
+            langBtns.forEach(btn => btn.disabled = speechWordsList.length !== 1);
         } else {
             speechPreviewText.textContent = selectedSpeechWords.join(' ');
             langBtns.forEach(btn => btn.disabled = false);
