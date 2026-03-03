@@ -32,6 +32,14 @@ ADMIN_GOOGLE_TRANSLATE_API_KEY = os.environ.get("GOOGLE_TRANSLATE_API_KEY", "")
 # Trial period in days
 TRIAL_DAYS = 7
 
+# Admin usernames (comma-separated env var, plus id=1 and "admin" always)
+ADMIN_USERNAMES = set(filter(None, os.environ.get("ADMIN_USERNAMES", "").split(",")))
+
+
+def is_admin_user(user) -> bool:
+    """Check if a user has admin privileges (permanent API access)."""
+    return user.id == 1 or user.username == "admin" or user.username in ADMIN_USERNAMES
+
 
 def get_api_key(user_id: int, service: str, db: Session) -> Optional[str]:
     """Resolve API key for a user and service.
@@ -60,8 +68,8 @@ def get_api_key(user_id: int, service: str, db: Session) -> Optional[str]:
     if not user:
         return None
 
-    # Admin user (id=1 or username "admin") always gets admin keys
-    if user.id == 1 or user.username == "admin":
+    # Admin users always get admin keys
+    if is_admin_user(user):
         return _get_admin_key(service)
 
     created_at = user.created_at
@@ -78,7 +86,7 @@ def get_api_key(user_id: int, service: str, db: Session) -> Optional[str]:
 
 def get_trial_days_remaining(user) -> int:
     """Return remaining trial days for a user. 0 if expired."""
-    if user.id == 1 or user.username == "admin":
+    if is_admin_user(user):
         return 999  # Admin always has access
     if user.created_at is None:
         return 0

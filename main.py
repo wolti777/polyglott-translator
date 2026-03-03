@@ -34,7 +34,7 @@ from auth import (
     send_password_reset_email,
     ACCESS_TOKEN_EXPIRE_MINUTES,
 )
-from translator import translate_to_all_languages, get_trial_days_remaining
+from translator import translate_to_all_languages, get_trial_days_remaining, is_admin_user
 
 # Create database tables (works for both SQLite and PostgreSQL)
 Base.metadata.create_all(bind=engine)
@@ -252,8 +252,7 @@ async def register(
     user = create_user(db, username, password, email)
 
     # First user (admin) - skip email verification, log in directly
-    is_admin = user.id == 1 or user.username == "admin"
-    if is_admin:
+    if is_admin_user(user):
         user.email_verified = True
         db.commit()
         access_token = create_access_token(
@@ -594,7 +593,7 @@ async def save_user_settings(request: Request, db: Session = Depends(get_db)):
 async def admin_verify_user(request: Request, username: str, db: Session = Depends(get_db)):
     """Admin can manually verify a user's email."""
     admin = await get_current_user(request, db)
-    if not admin or (admin.id != 1 and admin.username != "admin"):
+    if not admin or not is_admin_user(admin):
         raise HTTPException(status_code=403, detail="Admin only")
     target = get_user_by_username(db, username)
     if not target:
@@ -608,7 +607,7 @@ async def admin_verify_user(request: Request, username: str, db: Session = Depen
 async def admin_reset_password(request: Request, username: str, db: Session = Depends(get_db)):
     """Admin can reset a user's password."""
     admin = await get_current_user(request, db)
-    if not admin or (admin.id != 1 and admin.username != "admin"):
+    if not admin or not is_admin_user(admin):
         raise HTTPException(status_code=403, detail="Admin only")
     body = await request.json()
     new_password = body.get("password", "")
@@ -649,8 +648,8 @@ async def admin_test_email(request: Request, db: Session = Depends(get_db)):
     # Allow access via secret key OR admin login
     secret = request.query_params.get("key", "")
     admin = await get_current_user(request, db)
-    is_admin = admin and (admin.id == 1 or admin.username == "admin")
-    if not is_admin and secret != "glossarium2026":
+    admin_ok = admin and is_admin_user(admin)
+    if not admin_ok and secret != "glossarium2026":
         raise HTTPException(status_code=403, detail="Admin only")
 
     results = []
@@ -712,7 +711,7 @@ async def admin_test_email(request: Request, db: Session = Depends(get_db)):
 async def admin_dashboard(request: Request, db: Session = Depends(get_db)):
     """Admin dashboard - shows all users, DB status, etc."""
     admin = await get_current_user(request, db)
-    if not admin or (admin.id != 1 and admin.username != "admin"):
+    if not admin or not is_admin_user(admin):
         return RedirectResponse(url="/login", status_code=303)
 
     users = db.query(User).all()
@@ -842,6 +841,7 @@ async def translate(
         user_id=user.id,
         db=db,
     )
+    translations["trial_days_remaining"] = get_trial_days_remaining(user)
     return translations
 
 

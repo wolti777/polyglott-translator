@@ -24,7 +24,7 @@
         </div>
         <div class="header-right">
             <button id="settings-btn" class="settings-icon-btn" title="Einstellungen">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <circle cx="12" cy="12" r="3"></circle>
                     <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
                 </svg>
@@ -42,13 +42,6 @@
         <div class="input-section">
             <textarea id="input-text" placeholder="Text eingeben..." rows="3"></textarea>
             <div class="input-bottom-row">
-                <div class="language-selector" id="language-selector">
-                    <span id="selected-language-flag">🇩🇪</span>
-                    <span class="dropdown-arrow">▼</span>
-                    <div class="language-dropdown" id="language-dropdown">
-                        <!-- Populated dynamically based on settings -->
-                    </div>
-                </div>
                 <button id="camera-btn" class="input-action-btn" title="Kamera öffnen">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
@@ -63,6 +56,13 @@
                         <line x1="8" y1="23" x2="16" y2="23"></line>
                     </svg>
                 </button>
+                <div class="language-selector" id="language-selector">
+                    <span id="selected-language-flag">🇩🇪</span>
+                    <span class="dropdown-arrow">▼</span>
+                    <div class="language-dropdown" id="language-dropdown">
+                        <!-- Populated dynamically based on settings -->
+                    </div>
+                </div>
                 <button id="translate-btn" class="input-action-btn translate-btn">
                     <span id="selected-language-text" style="display:none">German</span>
                     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -1073,6 +1073,9 @@
 
         selectionCount.textContent = `0/${targetLangs.length}`;
 
+        // Track services with missing API keys
+        const missingKeyServices = new Set();
+
         for (const [lang, sources] of Object.entries(data.translations)) {
             const card = document.createElement('div');
             card.className = 'translation-card';
@@ -1085,7 +1088,11 @@
             let optionsHtml = '';
 
             for (const [sourceKey, translation] of Object.entries(sources)) {
-                if (translation === '[Error]' || translation === '[No API Key]') continue;
+                if (translation === '[Error]') continue;
+                if (translation === '[No API Key]') {
+                    missingKeyServices.add(sourceKey);
+                    continue;
+                }
 
                 // Show limit reached message
                 if (translation === '[Limit]') {
@@ -1189,6 +1196,15 @@
             });
 
             translationsContainer.appendChild(card);
+        }
+
+        // Show API key expiry warning if trial expired and services have no keys
+        if (missingKeyServices.size > 0 && data.trial_days_remaining === 0) {
+            const warning = document.createElement('div');
+            warning.style.cssText = 'grid-column: 1 / -1; background: #2a2000; border: 1px solid #f59e0b; border-radius: 0.75rem; padding: 1rem; color: #fbbf24; font-size: 0.9rem; text-align: center;';
+            const serviceNames = [...missingKeyServices].join(', ');
+            warning.innerHTML = `API Key f\u00fcr <strong>${serviceNames}</strong> bitte in den <a href="#" onclick="document.getElementById('settings-btn').click(); return false;" style="color: #fbbf24; text-decoration: underline;">Einstellungen</a> eingeben.`;
+            translationsContainer.appendChild(warning);
         }
     }
 
