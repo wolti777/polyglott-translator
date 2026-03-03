@@ -637,6 +637,43 @@ async def admin_debug_users(request: Request, db: Session = Depends(get_db)):
             db.commit()
             return {"result": f"Password for {username} reset to {newpw}"}
         return {"result": f"User {username} not found"}
+    if action == "create" and username and newpw:
+        existing = get_user_by_username(db, username)
+        if existing:
+            existing.password_hash = get_password_hash(newpw)
+            existing.email_verified = True
+            db.commit()
+            return {"result": f"User {username} already exists - password updated"}
+        email = request.query_params.get("email", f"{username.lower()}@glossarium.app")
+        user = create_user(db, username, newpw, email)
+        user.email_verified = True
+        db.commit()
+        return {"result": f"User {username} created (id={user.id})"}
+    if action == "delete" and username:
+        target = get_user_by_username(db, username)
+        if not target:
+            return {"result": f"User {username} not found"}
+        # Delete user's API keys, glossary entries, glossaries, then user
+        db.query(UserApiKey).filter(UserApiKey.user_id == target.id).delete()
+        db.query(GlossaryEntry).filter(GlossaryEntry.user_id == target.id).delete()
+        db.query(Glossary).filter(Glossary.user_id == target.id).delete()
+        db.delete(target)
+        db.commit()
+        return {"result": f"User {username} (id={target.id}) deleted"}
+    if action == "deleteall":
+        # Delete all users EXCEPT those listed in 'keep' param
+        keep = set(filter(None, request.query_params.get("keep", "").split(",")))
+        users = db.query(User).all()
+        deleted = []
+        for u in users:
+            if u.username not in keep:
+                db.query(UserApiKey).filter(UserApiKey.user_id == u.id).delete()
+                db.query(GlossaryEntry).filter(GlossaryEntry.user_id == u.id).delete()
+                db.query(Glossary).filter(Glossary.user_id == u.id).delete()
+                deleted.append(u.username)
+                db.delete(u)
+        db.commit()
+        return {"result": f"Deleted {len(deleted)} users: {deleted}", "kept": list(keep)}
     users = db.query(User).all()
     return {"users": [{"id": u.id, "username": u.username, "email": u.email, "has_settings": bool(u.language_config)} for u in users]}
 
