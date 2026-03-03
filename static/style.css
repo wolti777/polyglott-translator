@@ -225,19 +225,19 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 1.25rem 1rem;
+    padding: 0.8rem 1rem;
     border-bottom: 1px solid var(--border-color);
 }
 
 .header-left {
     display: flex;
     align-items: center;
-    gap: 1.5rem;
+    gap: 1rem;
 }
 
 .header-logo {
-    width: 64px;
-    height: 64px;
+    width: 42px;
+    height: 42px;
     object-fit: contain;
 }
 
@@ -252,7 +252,7 @@ body {
     border: none;
     color: var(--text-muted);
     cursor: pointer;
-    padding: 0.75rem;
+    padding: 0.5rem;
     border-radius: 0.375rem;
     display: flex;
     align-items: center;
@@ -271,10 +271,10 @@ body {
     background: none;
     border: none;
     color: #ffffff;
-    font-size: 2.35rem;
+    font-size: 1.5rem;
     font-weight: 500;
     cursor: pointer;
-    padding: 0.5rem 1rem;
+    padding: 0.325rem 0.65rem;
     border-radius: 0.375rem;
     font-family: inherit;
     transition: color 0.15s ease;
@@ -285,7 +285,7 @@ body {
 }
 
 .glossary-selector-btn .dropdown-arrow {
-    font-size: 1rem;
+    font-size: 0.65rem;
     color: var(--text-muted);
 }
 
@@ -298,8 +298,8 @@ body {
 }
 
 .tab-link {
-    padding: 1.25rem 2rem;
-    font-size: 2.5rem;
+    padding: 0.8rem 1.3rem;
+    font-size: 1.625rem;
     font-weight: 700;
     color: #3d7a3d;
     text-decoration: none;
@@ -1491,16 +1491,16 @@ body {
         top: 0;
         z-index: 50;
         background: var(--bg-color);
-        padding: 1rem 0.75rem;
+        padding: 0.65rem 0.75rem;
     }
 
     .header-logo {
-        width: 56px;
-        height: 56px;
+        width: 36px;
+        height: 36px;
     }
 
     .glossary-selector-btn {
-        font-size: 1.625rem;
+        font-size: 1.05rem;
     }
 
     #selected-glossary-name {
@@ -1517,15 +1517,15 @@ body {
     /* Tab bar sticky below header */
     .app-tab-bar {
         position: sticky;
-        top: 90px;
+        top: 55px;
         z-index: 49;
         background: var(--bg-color);
         padding: 0 0.75rem;
     }
 
     .tab-link {
-        padding: 1rem 1.5rem;
-        font-size: 1.625rem;
+        padding: 0.65rem 1rem;
+        font-size: 1.05rem;
     }
 
     /* Main content */
