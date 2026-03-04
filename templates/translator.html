@@ -935,6 +935,23 @@
     // Load glossaries and recent entries on page load
     loadGlossaries().then(() => {
         loadRecentEntries();
+        const pendingKey = storageKey('pendingEdit');
+        const pendingRaw = localStorage.getItem(pendingKey);
+        if (pendingRaw) {
+            localStorage.removeItem(pendingKey);
+            try {
+                const pending = JSON.parse(pendingRaw);
+                if (pending.lang && appSettings.languages.includes(pending.lang)) {
+                    selectedLanguage = pending.lang;
+                    localStorage.setItem(storageKey('selectedLanguage'), selectedLanguage);
+                    updateLanguageDisplay(selectedLanguage);
+                }
+                if (pending.word) {
+                    inputText.value = pending.word;
+                    setTimeout(() => translateBtn.click(), 150);
+                }
+            } catch (e) {}
+        }
     });
 
     function clearFields() {

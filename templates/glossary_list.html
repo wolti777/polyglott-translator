@@ -155,7 +155,10 @@
                         '<button class="entry-delete" aria-label="' + t('glossary_list.delete') + '">&times;</button>' +
                     '</div>' +
                 '</div>' +
-                '<div class="swipe-delete">' + t('glossary_list.delete') + '</div>';
+                '<div class="swipe-actions">' +
+                    '<div class="swipe-edit">' + t('glossary_list.edit') + '</div>' +
+                    '<div class="swipe-delete">' + t('glossary_list.delete') + '</div>' +
+                '</div>';
 
             wrapper.querySelector('.entry-delete').addEventListener('click', (e) => {
                 e.stopPropagation();
@@ -164,6 +167,10 @@
 
             wrapper.querySelector('.swipe-delete').addEventListener('click', () => {
                 deleteEntry(entry.id, wrapper);
+            });
+
+            wrapper.querySelector('.swipe-edit').addEventListener('click', () => {
+                editEntry(entry, wrapper);
             });
 
             setupSwipe(wrapper);
@@ -202,6 +209,23 @@
         }
     }
 
+    async function editEntry(entry, wrapper) {
+        // Determine source language (first non-empty language in user's settings)
+        const langs = appSettings.languages.length > 0 ? appSettings.languages : ['german', 'english'];
+        const sourceLang = langs.find(l => entry[l]) || langs[0];
+        const sourceWord = entry[sourceLang] || '';
+
+        try {
+            await fetch('/glossary/entry/' + entry.id, { method: 'DELETE' });
+        } catch (e) {
+            console.error('Error deleting entry for edit:', e);
+        }
+
+        const pendingKey = storageKey('pendingEdit');
+        localStorage.setItem(pendingKey, JSON.stringify({ word: sourceWord, lang: sourceLang }));
+        window.location.href = '/translator';
+    }
+
     function setupSwipe(wrapper) {
         const card = wrapper.querySelector('.entry-card');
         let startX = 0, currentX = 0, isDragging = false;
@@ -218,7 +242,7 @@
             if (!isDragging) return;
             currentX = e.touches[0].clientX - startX;
             if (currentX > 0) currentX = 0;
-            if (currentX < -100) currentX = -100;
+            if (currentX < -180) currentX = -180;
             card.style.transform = 'translateX(' + currentX + 'px)';
         }, { passive: true });
 
@@ -226,8 +250,8 @@
             if (!isDragging) return;
             isDragging = false;
             card.style.transition = 'transform 0.2s ease';
-            if (currentX < -50) {
-                card.style.transform = 'translateX(-80px)';
+            if (currentX < -80) {
+                card.style.transform = 'translateX(-160px)';
                 openSwipeCard = wrapper;
             } else {
                 card.style.transform = 'translateX(0)';

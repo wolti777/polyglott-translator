@@ -2601,27 +2601,40 @@ body {
     color: var(--error-color);
 }
 
-/* Swipe delete (mobile) */
-.swipe-delete {
+/* Swipe actions (mobile) */
+.swipe-actions {
     position: absolute;
     top: 0;
     right: 0;
     bottom: 0;
-    width: 80px;
-    background: var(--error-color);
+    width: 160px;
+    display: flex;
+    z-index: 0;
+}
+
+.swipe-edit,
+.swipe-delete {
+    flex: 1;
     display: flex;
     align-items: center;
     justify-content: center;
     color: white;
     font-weight: 600;
     font-size: 0.75rem;
-    z-index: 0;
     cursor: pointer;
+}
+
+.swipe-edit {
+    background: var(--success-color);
+}
+
+.swipe-delete {
+    background: var(--error-color);
 }
 
 /* Desktop: hide swipe */
 @media (min-width: 769px) {
-    .swipe-delete {
+    .swipe-actions {
         display: none;
     }
 }
