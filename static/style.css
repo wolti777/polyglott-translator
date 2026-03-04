@@ -2609,7 +2609,7 @@ body {
     bottom: 0;
     width: 160px;
     display: flex;
-    z-index: 0;
+    transform: translateX(100%);
 }
 
 .swipe-edit,

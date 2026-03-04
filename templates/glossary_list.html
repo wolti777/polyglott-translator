@@ -228,6 +228,7 @@
 
     function setupSwipe(wrapper) {
         const card = wrapper.querySelector('.entry-card');
+        const actions = wrapper.querySelector('.swipe-actions');
         let startX = 0, currentX = 0, isDragging = false;
 
         card.addEventListener('touchstart', (e) => {
@@ -236,6 +237,7 @@
             currentX = 0;
             isDragging = true;
             card.style.transition = 'none';
+            if (actions) actions.style.transition = 'none';
         }, { passive: true });
 
         card.addEventListener('touchmove', (e) => {
@@ -244,17 +246,22 @@
             if (currentX > 0) currentX = 0;
             if (currentX < -180) currentX = -180;
             card.style.transform = 'translateX(' + currentX + 'px)';
+            // actions slides in from the right: offset starts at 160 (hidden) → 0 (fully visible)
+            if (actions) actions.style.transform = 'translateX(' + (160 + currentX) + 'px)';
         }, { passive: true });
 
         card.addEventListener('touchend', () => {
             if (!isDragging) return;
             isDragging = false;
             card.style.transition = 'transform 0.2s ease';
+            if (actions) actions.style.transition = 'transform 0.2s ease';
             if (currentX < -50) {
                 card.style.transform = 'translateX(-160px)';
+                if (actions) actions.style.transform = 'translateX(0)';
                 openSwipeCard = wrapper;
             } else {
                 card.style.transform = 'translateX(0)';
+                if (actions) actions.style.transform = 'translateX(160px)';
                 if (openSwipeCard === wrapper) openSwipeCard = null;
             }
         });
@@ -262,9 +269,14 @@
 
     function resetSwipe(wrapper) {
         const card = wrapper.querySelector('.entry-card');
+        const actions = wrapper.querySelector('.swipe-actions');
         if (card) {
             card.style.transition = 'transform 0.2s ease';
             card.style.transform = 'translateX(0)';
+        }
+        if (actions) {
+            actions.style.transition = 'transform 0.2s ease';
+            actions.style.transform = 'translateX(160px)';
         }
         if (openSwipeCard === wrapper) openSwipeCard = null;
     }
