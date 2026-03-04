@@ -236,8 +236,8 @@ body {
 }
 
 .header-logo {
-    width: 57px;
-    height: 57px;
+    width: 85px;
+    height: 85px;
     object-fit: contain;
 }
 
@@ -383,7 +383,7 @@ body {
 }
 
 #selected-language-flag {
-    font-size: 1.375rem;
+    font-size: 2.0rem;
 }
 
 .dropdown-arrow {
@@ -448,7 +448,7 @@ body {
 }
 
 .input-action-btn.translate-btn {
-    color: var(--primary-color);
+    color: #6abf6a;
 }
 
 .input-action-btn.translate-btn:hover {
@@ -567,6 +567,14 @@ body {
 .card-header h3 {
     font-size: 0.875rem;
     font-weight: 600;
+}
+
+.card-header-hint {
+    margin-left: auto;
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    font-weight: 400;
+    white-space: nowrap;
 }
 
 .card-content {
@@ -1495,8 +1503,8 @@ body {
     }
 
     .header-logo {
-        width: 49px;
-        height: 49px;
+        width: 73px;
+        height: 73px;
     }
 
     .glossary-selector-btn {
@@ -1550,7 +1558,7 @@ body {
     }
 
     #selected-language-flag {
-        font-size: 1.25rem;
+        font-size: 1.875rem;
     }
 
     .language-dropdown {

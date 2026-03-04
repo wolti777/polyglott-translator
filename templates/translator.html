@@ -43,13 +43,13 @@
             <textarea id="input-text" data-i18n-placeholder="translator.input.placeholder" rows="3"></textarea>
             <div class="input-bottom-row">
                 <button id="camera-btn" class="input-action-btn" data-i18n-title="translator.input.title_camera">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
                         <circle cx="12" cy="13" r="4"></circle>
                     </svg>
                 </button>
                 <button id="mic-btn" class="input-action-btn" data-i18n-title="translator.input.title_mic">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
                         <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
                         <line x1="12" y1="19" x2="12" y2="23"></line>
@@ -65,7 +65,7 @@
                 </div>
                 <button id="translate-btn" class="input-action-btn translate-btn">
                     <span id="selected-language-text" style="display:none">German</span>
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <svg width="33" height="33" viewBox="0 0 24 24" fill="none" stroke="#6abf6a" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
                         <line x1="5" y1="12" x2="19" y2="12"></line>
                         <polyline points="12 5 19 12 12 19"></polyline>
                     </svg>
@@ -130,7 +130,12 @@
                     <div class="scanned-words-label" data-i18n="translator.speech.recognized_words">Erkannte Wörter (tippe zum Auswählen):</div>
                     <div id="speech-words" class="scanned-words"></div>
                 </div>
+                <div class="selected-preview" style="padding: 0 1rem;">
+                    <span class="selected-label" data-i18n="translator.speech.selection">Auswahl:</span>
+                    <span id="speech-preview-text">---</span>
+                </div>
                 <div class="speech-lang-row">
+                    <div class="camera-lang-label" data-i18n="translator.camera.translate_from">Übersetzen von:</div>
                     <div class="speech-lang-buttons camera-lang-buttons"></div>
                 </div>
                 <div class="speech-mic-area">
@@ -143,10 +148,6 @@
                         </svg>
                     </button>
                     <div id="speech-hint" class="speech-hint" data-i18n="translator.speech.recording">Aufnahme läuft...</div>
-                </div>
-                <div class="selected-preview" style="padding: 0 1rem;">
-                    <span class="selected-label" data-i18n="translator.speech.selection">Auswahl:</span>
-                    <span id="speech-preview-text">---</span>
                 </div>
             </div>
         </div>
@@ -1155,6 +1156,7 @@
                 <div class="card-header">
                     <span class="flag">${flag}</span>
                     <h3>${langName}</h3>
+                    <span class="card-header-hint">${t('translator.choose_result')}</span>
                 </div>
                 <div class="card-content">
                     ${optionsHtml}
