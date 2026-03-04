@@ -2509,6 +2509,7 @@ body {
 .entry-card-wrapper {
     position: relative;
     overflow: hidden;
+    transform: translateZ(0); /* force GPU layer so Safari clips transformed children */
 }
 
 /* Card: horizontal layout with body + actions */
