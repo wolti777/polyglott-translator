@@ -1325,10 +1325,24 @@
     let currentZoom = 1;
     let videoTrack = null;
 
+    // Lazy-load Tesseract script on first use
+    let tesseractScriptLoaded = false;
+    function loadTesseractScript() {
+        return new Promise((resolve, reject) => {
+            if (tesseractScriptLoaded) { resolve(); return; }
+            const s = document.createElement('script');
+            s.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
+            s.onload = () => { tesseractScriptLoaded = true; resolve(); };
+            s.onerror = reject;
+            document.head.appendChild(s);
+        });
+    }
+
     // Initialize Tesseract worker
     async function initTesseract() {
         if (!tesseractWorker) {
             cameraStatus.textContent = t('translator.camera.loading_ocr');
+            await loadTesseractScript();
             tesseractWorker = await Tesseract.createWorker('deu+eng+spa+pol+fra+ita+por+nld+rus');
             cameraStatus.textContent = '';
         }
@@ -1458,9 +1472,6 @@
             cameraContainer.addEventListener('touchend', handleTouchEnd);
 
             cameraStatus.textContent = t('translator.camera.ready');
-
-            // Pre-load Tesseract
-            initTesseract();
         } catch (error) {
             console.error('Camera error:', error);
             cameraStatus.textContent = t('translator.camera.access_denied');
