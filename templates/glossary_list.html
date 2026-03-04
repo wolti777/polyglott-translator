@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Vokabelliste{% endblock %}
+{% block title %}Glossarium{% endblock %}
 
 {% block content %}
 <div class="app-container">
@@ -11,9 +11,9 @@
     </header>
 
     <nav class="app-tab-bar">
-        <a href="/translator" class="tab-link">Glossar</a>
-        <a href="/glossary-list" class="tab-link active">Liste</a>
-        <a href="/vocab-test" class="tab-link">Test</a>
+        <a href="/translator" class="tab-link" data-i18n="nav.glossary">Glossar</a>
+        <a href="/glossary-list" class="tab-link active" data-i18n="nav.list">Liste</a>
+        <a href="/vocab-test" class="tab-link" data-i18n="nav.test">Test</a>
     </nav>
 
     <main class="translator-main">
@@ -23,15 +23,15 @@
         </div>
 
         <div id="entries-container" class="entries-list">
-            <div class="entries-loading">Laden...</div>
+            <div class="entries-loading" data-i18n="glossary_list.loading">Laden...</div>
         </div>
 
-        <div id="entries-empty" class="entries-empty" style="display:none;">
+        <div id="entries-empty" class="entries-empty" style="display:none;" data-i18n="glossary_list.empty">
             Keine Eintr&auml;ge vorhanden.
         </div>
 
         <footer class="app-footer">
-            <a href="/logout" class="logout-link">Logout</a>
+            <a href="/logout" class="logout-link" data-i18n="nav.logout">Logout</a>
         </footer>
     </main>
 </div>
@@ -102,7 +102,7 @@
     });
 
     async function loadEntries(glossaryId) {
-        entriesContainer.innerHTML = '<div class="entries-loading">Laden...</div>';
+        entriesContainer.innerHTML = '<div class="entries-loading">' + t('glossary_list.loading') + '</div>';
         entriesEmpty.style.display = 'none';
         entryCount.textContent = '';
         try {
@@ -113,7 +113,7 @@
             renderEntries(entries);
         } catch (e) {
             console.error('Error loading entries:', e);
-            entriesContainer.innerHTML = '<div class="entries-loading">Fehler beim Laden.</div>';
+            entriesContainer.innerHTML = '<div class="entries-loading">' + t('glossary_list.error') + '</div>';
         }
     }
 
@@ -152,10 +152,10 @@
                     '<div class="entry-card-body">' + langsHtml + '</div>' +
                     '<div class="entry-card-actions">' +
                         '<span class="entry-rate">' + rate + '</span>' +
-                        '<button class="entry-delete" aria-label="L&ouml;schen">&times;</button>' +
+                        '<button class="entry-delete" aria-label="' + t('glossary_list.delete') + '">&times;</button>' +
                     '</div>' +
                 '</div>' +
-                '<div class="swipe-delete">L&ouml;schen</div>';
+                '<div class="swipe-delete">' + t('glossary_list.delete') + '</div>';
 
             wrapper.querySelector('.entry-delete').addEventListener('click', (e) => {
                 e.stopPropagation();

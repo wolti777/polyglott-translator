@@ -9,32 +9,36 @@
             <img src="/static/logo.png" alt="Glossarium" style="width: 64px; height: 64px;">
         </div>
         <h1 class="auth-title">Glossarium</h1>
-        <h2>Login</h2>
+        <h2 data-i18n="auth.login.title">Login</h2>
 
-        {% if error %}
-        <div class="error-message">{{ error|safe }}</div>
+        {% if error_key %}
+        <div class="error-message" data-i18n="{{ error_key }}"></div>
+        {% endif %}
+
+        {% if message_key %}
+        <div class="success-message" data-i18n="{{ message_key }}"></div>
         {% endif %}
 
         <form method="POST" action="/login" class="auth-form">
             <div class="form-group">
-                <label for="username">Username</label>
+                <label for="username" data-i18n="auth.login.username">Username</label>
                 <input type="text" id="username" name="username" autocomplete="username" required autofocus>
             </div>
             <div class="form-group">
-                <label for="password">Password</label>
+                <label for="password" data-i18n="auth.login.password">Password</label>
                 <input type="password" id="password" name="password" autocomplete="current-password" required>
             </div>
             <div class="form-group" style="display: flex; align-items: center; gap: 8px;">
                 <input type="checkbox" id="remember_me" name="remember_me" style="width: auto; margin: 0;">
-                <label for="remember_me" style="margin: 0; font-weight: normal;">Remember me for 30 days</label>
+                <label for="remember_me" style="margin: 0; font-weight: normal;" data-i18n="auth.login.remember_me">Remember me for 30 days</label>
             </div>
-            <button type="submit" class="btn btn-primary">Login</button>
+            <button type="submit" class="btn btn-primary" data-i18n="auth.login.btn">Login</button>
         </form>
 
         <p class="auth-link">
-            <a href="/forgot-password">Passwort vergessen?</a>
+            <a href="/forgot-password" data-i18n="auth.login.forgot_password">Passwort vergessen?</a>
         </p>
-        <p class="auth-link" style="color: #888; font-style: italic;">
+        <p class="auth-link" style="color: #888; font-style: italic;" data-i18n="auth.login.private_access">
             Private server access
         </p>
     </div>

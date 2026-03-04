@@ -11,41 +11,41 @@
     </header>
 
     <nav class="app-tab-bar">
-        <a href="/translator" class="tab-link">Glossar</a>
-        <a href="/glossary-list" class="tab-link">Liste</a>
-        <a href="/vocab-test" class="tab-link active">Test</a>
+        <a href="/translator" class="tab-link" data-i18n="nav.glossary">Glossar</a>
+        <a href="/glossary-list" class="tab-link" data-i18n="nav.list">Liste</a>
+        <a href="/vocab-test" class="tab-link active" data-i18n="nav.test">Test</a>
     </nav>
 
     <main class="translator-main">
         <div class="vocab-config">
             <div class="vocab-config-row">
                 <div class="vocab-config-field" style="flex:1;">
-                    <label>Frage</label>
+                    <label data-i18n="vocab.question">Frage</label>
                     <select id="question-lang" class="settings-language-select"></select>
                 </div>
             </div>
             <div class="vocab-config-row">
                 <div class="vocab-config-field">
-                    <label>Zeitraum</label>
+                    <label data-i18n="vocab.period">Zeitraum</label>
                     <div class="vocab-input-group">
                         <input type="number" id="days-input" value="1" min="1" max="365" class="vocab-number-input">
-                        <span class="vocab-input-suffix">Tage</span>
+                        <span class="vocab-input-suffix" data-i18n="vocab.days">Tage</span>
                     </div>
                 </div>
                 <div class="vocab-config-field">
-                    <label>Wiederholung</label>
+                    <label data-i18n="vocab.repeat">Wiederholung</label>
                     <div class="vocab-input-group">
                         <input type="number" id="max-rate-input" value="3" min="1" max="99" class="vocab-number-input">
                     </div>
                 </div>
                 <div class="vocab-config-field">
-                    <label>Max. Wiederholung</label>
+                    <label data-i18n="vocab.max_repeat">Max. Wiederholung</label>
                     <div class="vocab-input-group">
                         <input type="number" id="learn-limit-input" value="10" min="1" max="999" class="vocab-number-input">
                     </div>
                 </div>
             </div>
-            <button id="start-btn" class="btn btn-primary btn-large" style="width:100%;margin-top:0.75rem;">Test starten</button>
+            <button id="start-btn" class="btn btn-primary btn-large" style="width:100%;margin-top:0.75rem;" data-i18n="vocab.start">Test starten</button>
         </div>
 
         <div id="flashcard-container" style="display:none;">
@@ -72,12 +72,12 @@
 
         <div id="vocab-done" class="vocab-done" style="display:none;">
             <div class="vocab-done-icon">🎉</div>
-            <div class="vocab-done-text">Alle Vokabeln gelernt!</div>
-            <button id="restart-btn" class="btn btn-primary btn-large">Nochmal</button>
+            <div class="vocab-done-text" data-i18n="vocab.done">Alle Vokabeln gelernt!</div>
+            <button id="restart-btn" class="btn btn-primary btn-large" data-i18n="vocab.restart">Nochmal</button>
         </div>
 
         <footer class="app-footer">
-            <a href="/logout" class="logout-link">Logout</a>
+            <a href="/logout" class="logout-link" data-i18n="nav.logout">Logout</a>
         </footer>
     </main>
 </div>
@@ -274,7 +274,7 @@
         btnCorrect.disabled = false;
 
         // Progress
-        vocabProgress.textContent = `${vocabQueue.length + 1} von ${totalInRound} Vokabeln`;
+        vocabProgress.textContent = t('vocab.progress', { remaining: vocabQueue.length + 1, total: totalInRound });
     }
 
     // Reveal answer helper

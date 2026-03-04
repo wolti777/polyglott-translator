@@ -163,7 +163,7 @@ async def login(
     if not user:
         return templates.TemplateResponse(
             "login.html",
-            {"request": request, "error": "Invalid username or password"},
+            {"request": request, "error_key": "errors.invalid_credentials"},
         )
 
     # Email verification is no longer required for login
@@ -211,25 +211,25 @@ async def register(
     if len(username) < 3:
         return templates.TemplateResponse(
             "register.html",
-            {"request": request, "error": "Username must be at least 3 characters"},
+            {"request": request, "error_key": "errors.username_too_short"},
         )
 
     if len(password) < 6:
         return templates.TemplateResponse(
             "register.html",
-            {"request": request, "error": "Password must be at least 6 characters"},
+            {"request": request, "error_key": "errors.password_too_short"},
         )
 
     if password != password_confirm:
         return templates.TemplateResponse(
             "register.html",
-            {"request": request, "error": "Passwords do not match"},
+            {"request": request, "error_key": "errors.passwords_not_match"},
         )
 
     if not email or "@" not in email:
         return templates.TemplateResponse(
             "register.html",
-            {"request": request, "error": "Bitte gib eine gültige E-Mail-Adresse ein"},
+            {"request": request, "error_key": "errors.invalid_email"},
         )
 
     # Check if user already exists
@@ -237,7 +237,7 @@ async def register(
     if existing_user:
         return templates.TemplateResponse(
             "register.html",
-            {"request": request, "error": "Username already exists"},
+            {"request": request, "error_key": "errors.username_exists"},
         )
 
     # Check if email already exists
@@ -245,7 +245,7 @@ async def register(
     if existing_email:
         return templates.TemplateResponse(
             "register.html",
-            {"request": request, "error": "Diese E-Mail-Adresse ist bereits registriert"},
+            {"request": request, "error_key": "errors.email_exists"},
         )
 
     # Create user
@@ -295,7 +295,7 @@ async def resend_verification(
 
     return templates.TemplateResponse(
         "verify_pending.html",
-        {"request": request, "username": username, "message": "Bestätigungs-E-Mail wurde erneut gesendet."}
+        {"request": request, "username": username, "message_key": "success.verification_resent"}
     )
 
 
@@ -309,14 +309,14 @@ async def verify_email(
     if not email:
         return templates.TemplateResponse(
             "login.html",
-            {"request": request, "error": "Ungültiger oder abgelaufener Bestätigungslink."}
+            {"request": request, "error_key": "errors.invalid_verify_link"}
         )
 
     user = get_user_by_email(db, email)
     if not user:
         return templates.TemplateResponse(
             "login.html",
-            {"request": request, "error": "Benutzer nicht gefunden."}
+            {"request": request, "error_key": "errors.user_not_found"}
         )
 
     user.email_verified = True
@@ -364,19 +364,19 @@ async def change_password(
     if not verify_password(current_password, user.password_hash):
         return templates.TemplateResponse(
             "change_password.html",
-            {"request": request, "user": user, "error": "Aktuelles Passwort ist falsch"}
+            {"request": request, "user": user, "error_key": "errors.wrong_current_password"}
         )
 
     if len(new_password) < 6:
         return templates.TemplateResponse(
             "change_password.html",
-            {"request": request, "user": user, "error": "Neues Passwort muss mindestens 6 Zeichen lang sein"}
+            {"request": request, "user": user, "error_key": "errors.new_password_too_short"}
         )
 
     if new_password != new_password_confirm:
         return templates.TemplateResponse(
             "change_password.html",
-            {"request": request, "user": user, "error": "Passwörter stimmen nicht überein"}
+            {"request": request, "user": user, "error_key": "errors.passwords_not_match"}
         )
 
     user.password_hash = get_password_hash(new_password)
@@ -384,7 +384,7 @@ async def change_password(
 
     return templates.TemplateResponse(
         "change_password.html",
-        {"request": request, "user": user, "success": "Passwort wurde erfolgreich geändert"}
+        {"request": request, "user": user, "success_key": "success.password_changed"}
     )
 
 
@@ -408,7 +408,7 @@ async def forgot_password(
     # Always show success to prevent email enumeration
     return templates.TemplateResponse(
         "forgot_password.html",
-        {"request": request, "message": "Falls ein Konto mit dieser E-Mail existiert, wurde ein Reset-Link gesendet."}
+        {"request": request, "message_key": "success.password_reset_link"}
     )
 
 
@@ -432,26 +432,26 @@ async def reset_password(
     if not email:
         return templates.TemplateResponse(
             "reset_password.html",
-            {"request": request, "token": token, "error": "Ungültiger oder abgelaufener Reset-Link."}
+            {"request": request, "token": token, "error_key": "errors.invalid_reset_link"}
         )
 
     if len(new_password) < 6:
         return templates.TemplateResponse(
             "reset_password.html",
-            {"request": request, "token": token, "error": "Passwort muss mindestens 6 Zeichen lang sein"}
+            {"request": request, "token": token, "error_key": "errors.reset_password_too_short"}
         )
 
     if new_password != new_password_confirm:
         return templates.TemplateResponse(
             "reset_password.html",
-            {"request": request, "token": token, "error": "Passwörter stimmen nicht überein"}
+            {"request": request, "token": token, "error_key": "errors.passwords_not_match"}
         )
 
     user = get_user_by_email(db, email)
     if not user:
         return templates.TemplateResponse(
             "reset_password.html",
-            {"request": request, "token": token, "error": "Benutzer nicht gefunden."}
+            {"request": request, "token": token, "error_key": "errors.reset_user_not_found"}
         )
 
     user.password_hash = get_password_hash(new_password)
@@ -459,7 +459,7 @@ async def reset_password(
 
     return templates.TemplateResponse(
         "login.html",
-        {"request": request, "error": "Passwort wurde zurückgesetzt. Du kannst dich jetzt einloggen."}
+        {"request": request, "message_key": "success.password_reset_done"}
     )
 
 

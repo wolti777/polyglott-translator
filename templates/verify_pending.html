@@ -6,26 +6,26 @@
 <div class="auth-container">
     <div class="auth-card">
         <h1 class="auth-title">Polyglot Translator</h1>
-        <h2>E-Mail bestätigen</h2>
+        <h2 data-i18n="auth.verify.title">E-Mail bestätigen</h2>
 
-        {% if message %}
-        <div class="success-message">{{ message }}</div>
+        {% if message_key %}
+        <div class="success-message" data-i18n="{{ message_key }}"></div>
         {% endif %}
 
         <div class="verify-info">
-            <p>Wir haben dir eine Bestätigungs-E-Mail gesendet. Bitte klicke auf den Link in der E-Mail, um dein Konto zu aktivieren.</p>
-            <p class="verify-hint">Prüfe auch deinen Spam-Ordner.</p>
+            <p data-i18n="auth.verify.message">Wir haben dir eine Bestätigungs-E-Mail gesendet. Bitte klicke auf den Link in der E-Mail, um dein Konto zu aktivieren.</p>
+            <p class="verify-hint" data-i18n="auth.verify.hint">Prüfe auch deinen Spam-Ordner.</p>
         </div>
 
         {% if username %}
         <form method="POST" action="/resend-verification" class="auth-form">
             <input type="hidden" name="username" value="{{ username }}">
-            <button type="submit" class="btn btn-outline" style="width:100%">Bestätigungs-E-Mail erneut senden</button>
+            <button type="submit" class="btn btn-outline" style="width:100%" data-i18n="auth.verify.resend">Bestätigungs-E-Mail erneut senden</button>
         </form>
         {% endif %}
 
         <p class="auth-link">
-            <a href="/login">Zurück zum Login</a>
+            <a href="/login" data-i18n="auth.verify.back_login">Zurück zum Login</a>
         </p>
     </div>
 </div>

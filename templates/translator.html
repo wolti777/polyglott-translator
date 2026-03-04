@@ -8,22 +8,22 @@
         <div class="header-left">
             <img src="/static/logo.png" alt="Glossarium" class="header-logo">
             <div class="glossary-wrapper">
-                <button class="glossary-selector-btn" id="glossary-menu-btn" title="Glossar wechseln">
+                <button class="glossary-selector-btn" id="glossary-menu-btn" data-i18n-title="translator.glossary.change_title">
                     <span id="selected-glossary-name">Hauptglossar</span>
                     <span class="dropdown-arrow">▼</span>
                 </button>
                 <div class="glossary-menu" id="glossary-dropdown">
-                    <div class="glossary-menu-header">Glossar auswählen</div>
+                    <div class="glossary-menu-header" data-i18n="translator.glossary.select">Glossar auswählen</div>
                     <div class="glossary-list" id="glossary-list"></div>
                     <div class="glossary-create-row">
-                        <input type="text" id="new-glossary-name" placeholder="Neues Glossar...">
+                        <input type="text" id="new-glossary-name" data-i18n-placeholder="translator.glossary.new_placeholder">
                         <button id="create-glossary-btn">+</button>
                     </div>
                 </div>
             </div>
         </div>
         <div class="header-right">
-            <button id="settings-btn" class="settings-icon-btn" title="Einstellungen">
+            <button id="settings-btn" class="settings-icon-btn" data-i18n-title="translator.input.title_settings">
                 <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <circle cx="12" cy="12" r="3"></circle>
                     <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
@@ -33,22 +33,22 @@
     </header>
 
     <nav class="app-tab-bar">
-        <a href="/glossary-list" class="tab-link">Liste</a>
-        <a href="/vocab-test" class="tab-link">Test</a>
-        <a href="#" id="export-glossary-btn" class="tab-link">Export</a>
+        <a href="/glossary-list" class="tab-link" data-i18n="nav.list">Liste</a>
+        <a href="/vocab-test" class="tab-link" data-i18n="nav.test">Test</a>
+        <a href="#" id="export-glossary-btn" class="tab-link" data-i18n="nav.export">Export</a>
     </nav>
 
     <main class="translator-main">
         <div class="input-section">
-            <textarea id="input-text" placeholder="Text eingeben..." rows="3"></textarea>
+            <textarea id="input-text" data-i18n-placeholder="translator.input.placeholder" rows="3"></textarea>
             <div class="input-bottom-row">
-                <button id="camera-btn" class="input-action-btn" title="Kamera öffnen">
+                <button id="camera-btn" class="input-action-btn" data-i18n-title="translator.input.title_camera">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
                         <circle cx="12" cy="13" r="4"></circle>
                     </svg>
                 </button>
-                <button id="mic-btn" class="input-action-btn" title="Spracheingabe">
+                <button id="mic-btn" class="input-action-btn" data-i18n-title="translator.input.title_mic">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
                         <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
@@ -76,7 +76,7 @@
         <!-- Camera Overlay -->
         <div id="camera-overlay" class="camera-overlay" style="display: none;">
             <div class="camera-header">
-                <span>Richte den Rahmen auf das Wort</span>
+                <span data-i18n="translator.camera.header">Richte den Rahmen auf das Wort</span>
                 <button id="camera-close" class="camera-close-btn">✕</button>
             </div>
             <div class="camera-container">
@@ -96,38 +96,38 @@
                         <div class="scan-frame-right"></div>
                     </div>
                     <div class="scan-frame-bottom">
-                        <button id="camera-capture" class="btn btn-primary scan-btn">Scannen</button>
+                        <button id="camera-capture" class="btn btn-primary scan-btn" data-i18n="translator.camera.scan_btn">Scannen</button>
                     </div>
                 </div>
             </div>
             <div class="camera-bottom-scroll">
                 <div class="camera-result">
-                    <div class="scanned-words-label">Erkannte Wörter (tippe zum Auswählen):</div>
+                    <div class="scanned-words-label" data-i18n="translator.camera.recognized_words">Erkannte Wörter (tippe zum Auswählen):</div>
                     <div id="scanned-words" class="scanned-words"></div>
                     <div class="selected-preview">
-                        <span class="selected-label">Auswahl:</span>
+                        <span class="selected-label" data-i18n="translator.camera.selection">Auswahl:</span>
                         <span id="selected-preview-text">---</span>
                     </div>
                 </div>
                 <div class="camera-actions">
-                    <div class="camera-lang-label">Übersetzen von:</div>
+                    <div class="camera-lang-label" data-i18n="translator.camera.translate_from">Übersetzen von:</div>
                     <div class="camera-lang-buttons">
                         <!-- Populated dynamically based on settings -->
                     </div>
                 </div>
-                <div id="camera-status" class="camera-status">Wörter scannen, auswählen, dann Quellsprache wählen</div>
+                <div id="camera-status" class="camera-status" data-i18n="translator.camera.initial">Wörter scannen, auswählen, dann Quellsprache wählen</div>
             </div>
         </div>
 
         <!-- Speech Overlay -->
         <div id="speech-overlay" class="camera-overlay" style="display: none;">
             <div class="camera-header">
-                <span>Spracheingabe</span>
+                <span data-i18n="translator.speech.header">Spracheingabe</span>
                 <button id="speech-close" class="camera-close-btn">✕</button>
             </div>
             <div class="speech-scroll">
                 <div class="speech-chips-area">
-                    <div class="scanned-words-label">Erkannte Wörter (tippe zum Auswählen):</div>
+                    <div class="scanned-words-label" data-i18n="translator.speech.recognized_words">Erkannte Wörter (tippe zum Auswählen):</div>
                     <div id="speech-words" class="scanned-words"></div>
                 </div>
                 <div class="speech-lang-row">
@@ -142,10 +142,10 @@
                             <line x1="8" y1="23" x2="16" y2="23"></line>
                         </svg>
                     </button>
-                    <div id="speech-hint" class="speech-hint">Aufnahme läuft...</div>
+                    <div id="speech-hint" class="speech-hint" data-i18n="translator.speech.recording">Aufnahme läuft...</div>
                 </div>
                 <div class="selected-preview" style="padding: 0 1rem;">
-                    <span class="selected-label">Auswahl:</span>
+                    <span class="selected-label" data-i18n="translator.speech.selection">Auswahl:</span>
                     <span id="speech-preview-text">---</span>
                 </div>
             </div>
@@ -155,13 +155,13 @@
         <div id="settings-modal" class="settings-modal" style="display: none;">
             <div class="settings-modal-content">
                 <div class="settings-header">
-                    <h2>⚙️ Einstellungen</h2>
+                    <h2 data-i18n="translator.settings.title">⚙️ Einstellungen</h2>
                     <button id="settings-close" class="settings-close-btn">✕</button>
                 </div>
                 <div class="settings-body">
                     <div class="settings-section">
-                        <h3>SPRACHEN</h3>
-                        <p class="settings-hint">Wähle 2–6 Sprachen in gewünschter Reihenfolge</p>
+                        <h3 data-i18n="translator.settings.languages">SPRACHEN</h3>
+                        <p class="settings-hint" data-i18n="translator.settings.languages_hint">Wähle 2–6 Sprachen in gewünschter Reihenfolge</p>
                         <div class="settings-languages">
                             <div class="settings-language-row">
                                 <span class="lang-number">1.</span>
@@ -191,7 +191,7 @@
                     </div>
                     <div class="settings-divider"></div>
                     <div class="settings-section">
-                        <h3>ÜBERSETZUNGSDIENSTE</h3>
+                        <h3 data-i18n="translator.settings.services">ÜBERSETZUNGSDIENSTE</h3>
                         <div class="settings-checkboxes">
                             <label class="settings-checkbox">
                                 <input type="checkbox" id="service-deepl" checked>
@@ -217,60 +217,60 @@
                     </div>
                     <div class="settings-divider"></div>
                     <div class="settings-section">
-                        <h3>ERKLÄRUNGEN</h3>
+                        <h3 data-i18n="translator.settings.explanations">ERKLÄRUNGEN</h3>
                         <div class="settings-checkboxes">
                             <label class="settings-checkbox">
                                 <input type="checkbox" id="explain-pons" checked>
                                 <span class="checkmark"></span>
-                                PONS Wörterbuch
+                                <span data-i18n="translator.settings.pons_dict">PONS Wörterbuch</span>
                             </label>
                             <label class="settings-checkbox">
                                 <input type="checkbox" id="explain-groq" checked>
                                 <span class="checkmark"></span>
-                                KI (Groq)
+                                <span data-i18n="translator.settings.ai_groq">KI (Groq)</span>
                             </label>
                         </div>
                     </div>
                     <div class="settings-divider"></div>
                     <div class="settings-section">
-                        <h3>API-SCHLÜSSEL</h3>
-                        <p class="settings-hint" id="api-keys-hint">Eigene API-Keys eintragen (optional)</p>
+                        <h3 data-i18n="translator.settings.api_keys">API-SCHLÜSSEL</h3>
+                        <p class="settings-hint" id="api-keys-hint" data-i18n="translator.settings.api_keys_hint">Eigene API-Keys eintragen (optional)</p>
                         <div class="api-keys-fields">
                             <div class="api-key-row">
                                 <label class="api-key-label">DeepL</label>
                                 <div class="api-key-input-wrapper">
-                                    <input type="text" id="apikey-deepl" class="api-key-input" placeholder="Kein Key">
-                                    <button class="api-key-delete" data-service="deepl" title="Key löschen">&times;</button>
+                                    <input type="text" id="apikey-deepl" class="api-key-input" data-i18n-placeholder="translator.api_key_no_key">
+                                    <button class="api-key-delete" data-service="deepl">&times;</button>
                                 </div>
                             </div>
                             <div class="api-key-row">
                                 <label class="api-key-label">PONS</label>
                                 <div class="api-key-input-wrapper">
-                                    <input type="text" id="apikey-pons" class="api-key-input" placeholder="Kein Key">
-                                    <button class="api-key-delete" data-service="pons" title="Key löschen">&times;</button>
+                                    <input type="text" id="apikey-pons" class="api-key-input" data-i18n-placeholder="translator.api_key_no_key">
+                                    <button class="api-key-delete" data-service="pons">&times;</button>
                                 </div>
                             </div>
                             <div class="api-key-row">
                                 <label class="api-key-label">Google</label>
                                 <div class="api-key-input-wrapper">
-                                    <input type="text" id="apikey-google" class="api-key-input" placeholder="Kein Key">
-                                    <button class="api-key-delete" data-service="google" title="Key löschen">&times;</button>
+                                    <input type="text" id="apikey-google" class="api-key-input" data-i18n-placeholder="translator.api_key_no_key">
+                                    <button class="api-key-delete" data-service="google">&times;</button>
                                 </div>
                             </div>
                         </div>
                     </div>
                     <div class="settings-divider"></div>
                     <div class="settings-section">
-                        <h3>KONTO</h3>
+                        <h3 data-i18n="translator.settings.account">KONTO</h3>
                         <div class="settings-account-links">
-                            <a href="/change-password" class="btn btn-outline settings-account-btn">Passwort ändern</a>
-                            <a href="/admin/dashboard" class="btn btn-outline settings-account-btn" id="admin-dashboard-link" style="display:none">Admin Dashboard</a>
+                            <a href="/change-password" class="btn btn-outline settings-account-btn" data-i18n="translator.settings.change_password">Passwort ändern</a>
+                            <a href="/admin/dashboard" class="btn btn-outline settings-account-btn" id="admin-dashboard-link" style="display:none" data-i18n="translator.settings.admin_dashboard">Admin Dashboard</a>
                         </div>
                     </div>
                 </div>
                 <div class="settings-footer">
-                    <button id="settings-cancel" class="btn btn-outline">Abbrechen</button>
-                    <button id="settings-save" class="btn btn-primary">Speichern</button>
+                    <button id="settings-cancel" class="btn btn-outline" data-i18n="translator.settings.cancel">Abbrechen</button>
+                    <button id="settings-save" class="btn btn-primary" data-i18n="translator.settings.save">Speichern</button>
                 </div>
             </div>
         </div>
@@ -298,20 +298,20 @@
         </div>
 
         <div id="selection-status" class="selection-status" style="display: none;">
-            <span id="selection-count">0/3</span> selected
+            <span id="selection-count">0/3</span> <span data-i18n="translator.selection_selected">selected</span>
         </div>
 
         <div id="recent-saves" class="recent-saves" style="display: none;">
             <div class="recent-saves-header">
-                <h3>Recent Saves</h3>
-                <span class="recent-saves-glossary">Glossar: <span id="recent-glossary-name">-</span></span>
+                <h3 data-i18n="translator.recent_saves">Recent Saves</h3>
+                <span class="recent-saves-glossary"><span data-i18n="translator.recent_glossary">Glossar:</span> <span id="recent-glossary-name">-</span></span>
             </div>
             <div id="recent-saves-list" class="recent-saves-list"></div>
-            <a href="#" id="export-glossary-btn-bottom" class="btn btn-outline export-btn-bottom">Export: <span id="export-glossary-name">-</span></a>
+            <a href="#" id="export-glossary-btn-bottom" class="btn btn-outline export-btn-bottom"><span data-i18n="nav.export">Export</span>: <span id="export-glossary-name">-</span></a>
         </div>
 
         <footer class="app-footer">
-            <a href="/logout" class="logout-link">Logout</a>
+            <a href="/logout" class="logout-link" data-i18n="nav.logout">Logout</a>
         </footer>
     </main>
 </div>
@@ -481,7 +481,7 @@
             // Empty first option
             const emptyOpt = document.createElement('option');
             emptyOpt.value = '';
-            emptyOpt.textContent = '— Nicht belegt —';
+            emptyOpt.textContent = t('translator.settings.not_assigned');
             select.appendChild(emptyOpt);
 
             Object.entries(allLanguages).forEach(([key, lang]) => {
@@ -519,9 +519,9 @@
                     } else {
                         input.value = '';
                         if (trialDays > 0) {
-                            input.placeholder = 'Admin-Key aktiv (noch ' + trialDays + ' Tage)';
+                            input.placeholder = t('translator.api_key_admin_active', { days: trialDays });
                         } else {
-                            input.placeholder = 'Kein Key';
+                            input.placeholder = t('translator.api_key_no_key');
                         }
                         input.dataset.hasKey = 'false';
                     }
@@ -530,11 +530,11 @@
                 // Update hint text
                 const hint = document.getElementById('api-keys-hint');
                 if (trialDays > 0 && trialDays < 999) {
-                    hint.textContent = 'Probezeit: noch ' + trialDays + ' Tage mit Admin-Keys. Danach eigene Keys benötigt.';
+                    hint.textContent = t('translator.api_key_hint_trial', { days: trialDays });
                 } else if (trialDays >= 999) {
-                    hint.textContent = 'Admin-Konto: Admin-Keys werden immer verwendet (Fallback).';
+                    hint.textContent = t('translator.api_key_hint_admin');
                 } else {
-                    hint.textContent = 'Eigene API-Keys eintragen, um Übersetzungsdienste zu nutzen.';
+                    hint.textContent = t('translator.api_key_hint');
                 }
             }
         } catch (e) {
@@ -618,14 +618,14 @@
 
         // Require minimum 2
         if (newLanguages.length < 2) {
-            alert('Bitte wähle mindestens 2 Sprachen aus.');
+            alert(t('translator.alert.min_languages'));
             return;
         }
 
         // Check for duplicates
         const uniqueLangs = new Set(newLanguages);
         if (uniqueLangs.size !== newLanguages.length) {
-            alert('Bitte wähle verschiedene Sprachen aus (keine Duplikate).');
+            alert(t('translator.alert.no_duplicates'));
             return;
         }
 
@@ -764,7 +764,8 @@
                 warning = document.createElement('div');
                 warning.id = 'config-warning';
                 warning.style.cssText = 'text-align:center;padding:1.5rem;background:var(--card-bg);border-radius:0.75rem;box-shadow:var(--shadow);color:var(--text-muted);';
-                warning.innerHTML = 'Bitte zuerst in den <a href="#" id="config-warning-link" style="color:var(--primary-color);font-weight:600;">⚙️ Einstellungen</a> mindestens 2 Sprachen auswählen.';
+                const linkHtml = '<a href="#" id="config-warning-link" style="color:var(--primary-color);font-weight:600;">' + t('translator.config_warning_link') + '</a>';
+                warning.innerHTML = t('translator.config_warning', { link: linkHtml });
                 translationsContainer.parentNode.insertBefore(warning, translationsContainer);
                 warning.querySelector('#config-warning-link').addEventListener('click', (e) => {
                     e.preventDefault();
@@ -1104,7 +1105,7 @@
                     optionsHtml += `
                         <div class="translation-option limit-option" data-source="${sourceKey}">
                             <span class="source-badge limit-badge">${sourceKey}</span>
-                            <span class="translation-text limit-text">Limit erreicht</span>
+                            <span class="translation-text limit-text">${t('translator.limit_reached')}</span>
                         </div>
                     `;
                     continue;
@@ -1142,8 +1143,8 @@
                     ${optionsHtml}
                     <div class="custom-input-section">
                         <div class="custom-input-wrapper">
-                            <input type="text" class="custom-translation-input" data-lang="${lang}" placeholder="Eigene Eingabe...">
-                            <button class="custom-input-btn" data-lang="${lang}" title="Eigene Eingabe verwenden">✓</button>
+                            <input type="text" class="custom-translation-input" data-lang="${lang}" placeholder="${t('translator.custom_placeholder')}">
+                            <button class="custom-input-btn" data-lang="${lang}" title="${t('translator.custom_confirm_title')}">✓</button>
                         </div>
                     </div>
                 </div>
@@ -1175,7 +1176,7 @@
             customBtn.addEventListener('click', () => {
                 const customValue = customInput.value.trim();
                 if (!customValue) {
-                    alert('Bitte gib einen Text ein');
+                    alert(t('translator.alert.enter_text'));
                     return;
                 }
 
@@ -1208,7 +1209,8 @@
             const warning = document.createElement('div');
             warning.style.cssText = 'grid-column: 1 / -1; background: #2a2000; border: 1px solid #f59e0b; border-radius: 0.75rem; padding: 1rem; color: #fbbf24; font-size: 0.9rem; text-align: center;';
             const serviceNames = [...missingKeyServices].join(', ');
-            warning.innerHTML = `API Key f\u00fcr <strong>${serviceNames}</strong> bitte in den <a href="#" onclick="document.getElementById('settings-btn').click(); return false;" style="color: #fbbf24; text-decoration: underline;">Einstellungen</a> eingeben.`;
+            const settingsLinkHtml = '<a href="#" onclick="document.getElementById(\'settings-btn\').click(); return false;" style="color: #fbbf24; text-decoration: underline;">' + t('translator.api_key_settings_link') + '</a>';
+            warning.innerHTML = t('translator.api_key_warning', { services: '<strong>' + serviceNames + '</strong>', link: settingsLinkHtml });
             translationsContainer.appendChild(warning);
         }
     }
@@ -1216,7 +1218,7 @@
     translateBtn.addEventListener('click', async () => {
         const text = inputText.value.trim();
         if (!text) {
-            alert('Please enter some text to translate');
+            alert(t('translator.alert.empty_text'));
             return;
         }
 
@@ -1267,11 +1269,11 @@
                     groqExplanationBox.style.display = 'none';
                 }
             } else {
-                alert('Translation failed. Please try again.');
+                alert(t('translator.alert.translation_failed'));
             }
         } catch (error) {
             console.error('Error:', error);
-            alert('An error occurred. Please try again.');
+            alert(t('translator.alert.error_occurred'));
         } finally {
             translateBtn.disabled = false;
             translateBtn.querySelector('svg').style.opacity = '1';
@@ -1309,7 +1311,7 @@
     // Initialize Tesseract worker
     async function initTesseract() {
         if (!tesseractWorker) {
-            cameraStatus.textContent = 'Lade Texterkennung...';
+            cameraStatus.textContent = t('translator.camera.loading_ocr');
             tesseractWorker = await Tesseract.createWorker('deu+eng+spa+pol+fra+ita+por+nld+rus');
             cameraStatus.textContent = '';
         }
@@ -1410,7 +1412,7 @@
     cameraBtn.addEventListener('click', async () => {
         try {
             cameraOverlay.style.display = 'flex';
-            cameraStatus.textContent = 'Kamera wird gestartet...';
+            cameraStatus.textContent = t('translator.camera.starting');
             scannedWordsContainer.innerHTML = '<span class="no-words">---</span>';
             scannedWordsList = [];
             selectedWordsList = [];
@@ -1438,13 +1440,13 @@
             cameraContainer.addEventListener('touchmove', handleTouchMove, { passive: false });
             cameraContainer.addEventListener('touchend', handleTouchEnd);
 
-            cameraStatus.textContent = 'Richte den Rahmen auf das Wort. Zoom mit 2 Fingern.';
+            cameraStatus.textContent = t('translator.camera.ready');
 
             // Pre-load Tesseract
             initTesseract();
         } catch (error) {
             console.error('Camera error:', error);
-            cameraStatus.textContent = 'Kamera-Zugriff verweigert. Bitte erlaube den Zugriff in den Einstellungen.';
+            cameraStatus.textContent = t('translator.camera.access_denied');
         }
     });
 
@@ -1474,7 +1476,7 @@
     cameraCapture.addEventListener('click', async () => {
         if (!cameraStream) return;
 
-        cameraStatus.textContent = 'Erkenne Text...';
+        cameraStatus.textContent = t('translator.camera.recognizing');
         cameraCapture.disabled = true;
 
         try {
@@ -1536,16 +1538,16 @@
                     }
                 });
                 renderScannedWords();
-                cameraStatus.textContent = 'Tippe auf Wörter zum Auswählen. Erneut scannen für mehr.';
+                cameraStatus.textContent = t('translator.camera.select_words');
             } else {
                 if (scannedWordsList.length === 0) {
-                    scannedWordsContainer.innerHTML = '<span class="no-words">(kein Text erkannt)</span>';
+                    scannedWordsContainer.innerHTML = '<span class="no-words">' + t('translator.camera.no_text') + '</span>';
                 }
-                cameraStatus.textContent = 'Kein Text erkannt. Rahmen näher an das Wort richten.';
+                cameraStatus.textContent = t('translator.camera.no_text_found');
             }
         } catch (error) {
             console.error('OCR error:', error);
-            cameraStatus.textContent = 'Fehler bei der Texterkennung. Versuche es erneut.';
+            cameraStatus.textContent = t('translator.camera.ocr_error');
         } finally {
             cameraCapture.disabled = false;
         }
@@ -1680,9 +1682,7 @@
 
     function startRecognition() {
         if (!speechSupported) {
-            speechHint.textContent = isIOS
-                ? 'Spracheingabe nur in Safari. Bitte Safari verwenden.'
-                : 'Spracheingabe nicht unterstützt.';
+            speechHint.textContent = isIOS ? t('translator.speech.ios_only') : t('translator.speech.not_supported');
             speechRecordBtn.classList.remove('recording');
             return;
         }
@@ -1704,7 +1704,7 @@
         recognition.onstart = () => {
             isRecording = true;
             speechRecordBtn.classList.add('recording');
-            speechHint.textContent = 'Aufnahme läuft...';
+            speechHint.textContent = t('translator.speech.recording');
             resetSilenceTimer();
         };
 
@@ -1727,9 +1727,9 @@
             console.error('Speech recognition error:', e.error);
             clearTimeout(silenceTimer);
             if (e.error === 'not-allowed') {
-                speechHint.textContent = 'Mikrofon-Zugriff verweigert.';
+                speechHint.textContent = t('translator.speech.denied');
             } else if (e.error === 'no-speech') {
-                speechHint.textContent = 'Nichts erkannt.';
+                speechHint.textContent = t('translator.speech.no_speech');
             }
             stopRecognition();
         };
@@ -1745,7 +1745,7 @@
     function stopRecognition() {
         isRecording = false;
         speechRecordBtn.classList.remove('recording');
-        speechHint.textContent = 'Tippe für weitere Aufnahme';
+        speechHint.textContent = t('translator.speech.tap_for_more');
         if (recognition) {
             try { recognition.stop(); } catch (e) {}
             recognition = null;
@@ -1760,13 +1760,13 @@
         updateSpeechLangButtons();
         speechOverlay.style.display = 'flex';
         if (speechSupported) {
-            speechHint.textContent = 'Aufnahme läuft...';
+            speechHint.textContent = t('translator.speech.recording');
             speechRecordBtn.classList.add('recording');
             setTimeout(() => startRecognition(), 300);
         } else {
             speechHint.textContent = isIOS
-                ? 'Spracheingabe nur in Safari. Bitte Safari verwenden.'
-                : 'Spracheingabe nicht unterstützt.';
+                ? t('translator.speech.ios_only')
+                : t('translator.speech.not_supported');
             speechRecordBtn.classList.remove('recording');
         }
     }
