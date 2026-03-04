@@ -2620,8 +2620,11 @@ body {
     justify-content: center;
     color: white;
     font-weight: 600;
-    font-size: 0.75rem;
+    font-size: 0.7rem;
     cursor: pointer;
+    overflow: hidden;
+    text-align: center;
+    padding: 0 4px;
 }
 
 .swipe-edit {
