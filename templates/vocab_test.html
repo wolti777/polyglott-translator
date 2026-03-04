@@ -8,6 +8,24 @@
         <div class="header-left">
             <a href="/translator"><img src="/static/logo.png" alt="Glossarium" class="header-logo"></a>
         </div>
+        <div class="header-right">
+            <div class="glossary-wrapper">
+                <button class="glossary-selector-btn" id="glossary-menu-btn">
+                    <span id="selected-glossary-name">—</span>
+                    <span class="dropdown-arrow">▼</span>
+                </button>
+                <div class="glossary-menu" id="glossary-dropdown">
+                    <div class="glossary-menu-header" data-i18n="translator.glossary.select">Glossar auswählen</div>
+                    <div id="glossary-options"></div>
+                </div>
+            </div>
+            <a href="/translator" class="settings-icon-btn" title="Einstellungen">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="3"></circle>
+                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                </svg>
+            </a>
+        </div>
     </header>
 
     <nav class="app-tab-bar">
@@ -129,6 +147,48 @@
 
     let currentEntryId = null;
     let glossaryId = localStorage.getItem(storageKey('selectedGlossaryId')) || null;
+
+    // Glossary dropdown in header
+    const glossaryMenuBtn = document.getElementById('glossary-menu-btn');
+    const glossaryDropdownEl = document.getElementById('glossary-dropdown');
+    const selectedGlossaryNameEl = document.getElementById('selected-glossary-name');
+    const glossaryOptionsEl = document.getElementById('glossary-options');
+
+    glossaryMenuBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        glossaryDropdownEl.classList.toggle('show');
+    });
+    document.addEventListener('click', () => glossaryDropdownEl.classList.remove('show'));
+
+    async function loadGlossariesHeader() {
+        try {
+            const response = await fetch('/glossaries');
+            if (!response.ok) return;
+            const glossaries = await response.json();
+            glossaryOptionsEl.innerHTML = '';
+            glossaries.forEach(g => {
+                const div = document.createElement('div');
+                div.className = 'glossary-option' + (g.id == glossaryId ? ' selected' : '');
+                div.textContent = g.name;
+                div.addEventListener('click', () => {
+                    glossaryId = g.id;
+                    localStorage.setItem(storageKey('selectedGlossaryId'), glossaryId);
+                    selectedGlossaryNameEl.textContent = g.name;
+                    glossaryDropdownEl.classList.remove('show');
+                    glossaryOptionsEl.querySelectorAll('.glossary-option').forEach(el => el.classList.remove('selected'));
+                    div.classList.add('selected');
+                });
+                glossaryOptionsEl.appendChild(div);
+            });
+            if (!glossaryId && glossaries.length > 0) {
+                const def = glossaries.find(g => g.is_default) || glossaries[0];
+                glossaryId = def.id;
+            }
+            const active = glossaries.find(g => g.id == glossaryId);
+            if (active) selectedGlossaryNameEl.textContent = active.name;
+        } catch (e) { console.error('Error loading glossaries:', e); }
+    }
+    loadGlossariesHeader();
     let vocabQueue = [];
     let totalInRound = 0;
 
