@@ -1129,6 +1129,7 @@ body {
 
 .camera-container {
     flex: 1;
+    max-height: 50vh;
     position: relative;
     overflow: hidden;
     touch-action: none; /* Handle touch events manually for zoom */
@@ -1136,8 +1137,7 @@ body {
 
 #camera-video {
     width: 100%;
-    height: 125%;
-    margin-top: -25%;
+    height: 100%;
     object-fit: cover;
     transform-origin: center center;
     transition: transform 0.05s ease-out;
