@@ -32,6 +32,7 @@
         <a href="/translator" class="tab-link" data-i18n="nav.glossary">Glossar</a>
         <a href="/glossary-list" class="tab-link" data-i18n="nav.list">Liste</a>
         <a href="/vocab-test" class="tab-link active" data-i18n="nav.test">Test</a>
+        <a href="#" id="export-glossary-btn" class="tab-link" data-i18n="nav.export">Export</a>
     </nav>
 
     <main class="translator-main">
@@ -189,6 +190,12 @@
         } catch (e) { console.error('Error loading glossaries:', e); }
     }
     loadGlossariesHeader();
+
+    document.getElementById('export-glossary-btn').addEventListener('click', (e) => {
+        e.preventDefault();
+        const url = glossaryId ? `/glossary/export?glossary_id=${glossaryId}` : '/glossary/export';
+        window.location.href = url;
+    });
     let vocabQueue = [];
     let totalInRound = 0;
 
