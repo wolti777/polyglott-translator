@@ -294,7 +294,7 @@ body {
 .app-tab-bar {
     display: flex;
     gap: 0;
-    padding: 0;
+    padding: 0 1rem;
     border-bottom: 1px solid var(--border-color);
 }
 
@@ -1533,7 +1533,7 @@ body {
         top: 55px;
         z-index: 49;
         background: var(--bg-color);
-        padding: 0;
+        padding: 0 0.75rem;
     }
 
     .tab-link {
