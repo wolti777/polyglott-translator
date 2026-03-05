@@ -1128,8 +1128,7 @@ body {
 }
 
 .camera-container {
-    flex: 1;
-    max-height: 50vh;
+    flex: 0 0 42vh;
     position: relative;
     overflow: hidden;
     touch-action: none; /* Handle touch events manually for zoom */
