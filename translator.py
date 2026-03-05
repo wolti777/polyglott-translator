@@ -33,9 +33,8 @@ ADMIN_GOOGLE_TRANSLATE_API_KEY = os.environ.get("GOOGLE_TRANSLATE_API_KEY", "")
 TRIAL_DAYS = 7
 
 # Admin usernames (comma-separated env var, plus id=1 and "admin" always)
-_default_admins = {"admin1", "Magdalena1"}
 _env_admins = set(filter(None, os.environ.get("ADMIN_USERNAMES", "").split(",")))
-ADMIN_USERNAMES = _default_admins | _env_admins
+ADMIN_USERNAMES = _env_admins
 
 
 def is_admin_user(user) -> bool:

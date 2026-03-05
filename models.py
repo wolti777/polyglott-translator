@@ -54,8 +54,8 @@ class GlossaryEntry(Base):
     __tablename__ = "glossary_entries"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    glossary_id = Column(Integer, ForeignKey("glossaries.id"), nullable=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    glossary_id = Column(Integer, ForeignKey("glossaries.id"), nullable=True, index=True)
     spanish = Column(String(500))
     german = Column(String(500))
     polish = Column(String(500))
@@ -67,7 +67,7 @@ class GlossaryEntry(Base):
     russian = Column(String(500))
     learning_rate = Column(Integer, default=0)
     total_learning_rate = Column(Integer, default=0)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
 
     user = relationship("User", back_populates="glossary_entries")
     glossary = relationship("Glossary", back_populates="entries")

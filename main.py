@@ -1,3 +1,5 @@
+import html as html_module
+import logging
 import os
 import random
 from datetime import timedelta, datetime
@@ -5,6 +7,7 @@ from io import BytesIO
 from typing import Optional
 
 from fastapi import FastAPI, Request, Depends, Form, HTTPException, Query
+from fastapi.middleware.base import BaseHTTPMiddleware
 from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -80,6 +83,21 @@ def migrate_existing_db():
 migrate_existing_db()
 
 app = FastAPI(title="Polyglot Translator")
+
+logger = logging.getLogger(__name__)
+
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request, call_next):
+        response = await call_next(request)
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["X-XSS-Protection"] = "1; mode=block"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        return response
+
+
+app.add_middleware(SecurityHeadersMiddleware)
 
 # Mount static files and templates
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -214,7 +232,7 @@ async def register(
             {"request": request, "error_key": "errors.username_too_short"},
         )
 
-    if len(password) < 6:
+    if len(password) < 8:
         return templates.TemplateResponse(
             "register.html",
             {"request": request, "error_key": "errors.password_too_short"},
@@ -611,8 +629,8 @@ async def admin_reset_password(request: Request, username: str, db: Session = De
         raise HTTPException(status_code=403, detail="Admin only")
     body = await request.json()
     new_password = body.get("password", "")
-    if len(new_password) < 6:
-        raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
+    if len(new_password) < 8:
+        raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
     target = get_user_by_username(db, username)
     if not target:
         raise HTTPException(status_code=404, detail="User not found")
@@ -623,9 +641,9 @@ async def admin_reset_password(request: Request, username: str, db: Session = De
 
 @app.get("/admin/debug-users")
 async def admin_debug_users(request: Request, db: Session = Depends(get_db)):
-    """Temporary: show users and allow password reset via secret key."""
-    secret = request.query_params.get("key", "")
-    if secret != "glossarium2026":
+    """Admin: show users and allow password reset."""
+    admin = await get_current_user(request, db)
+    if not admin or not is_admin_user(admin):
         raise HTTPException(status_code=403, detail="Forbidden")
     action = request.query_params.get("action", "")
     username = request.query_params.get("user", "")
@@ -635,7 +653,7 @@ async def admin_debug_users(request: Request, db: Session = Depends(get_db)):
         if target:
             target.password_hash = get_password_hash(newpw)
             db.commit()
-            return {"result": f"Password for {username} reset to {newpw}"}
+            return {"result": f"Password for {username} reset"}
         return {"result": f"User {username} not found"}
     if action == "create" and username and newpw:
         existing = get_user_by_username(db, username)
@@ -682,11 +700,8 @@ async def admin_debug_users(request: Request, db: Session = Depends(get_db)):
 async def admin_test_email(request: Request, db: Session = Depends(get_db)):
     """Test SMTP connection - admin only."""
     import smtplib
-    # Allow access via secret key OR admin login
-    secret = request.query_params.get("key", "")
     admin = await get_current_user(request, db)
-    admin_ok = admin and is_admin_user(admin)
-    if not admin_ok and secret != "glossarium2026":
+    if not admin or not is_admin_user(admin):
         raise HTTPException(status_code=403, detail="Admin only")
 
     results = []
@@ -694,11 +709,7 @@ async def admin_test_email(request: Request, db: Session = Depends(get_db)):
     results.append(f"DATABASE: {SQLALCHEMY_DATABASE_URL[:50]}...")
     user_count = db.query(User).count()
     results.append(f"Users in DB: {user_count}")
-    # Show current logged-in user info
-    if admin:
-        results.append(f"Logged in as: {admin.username} (id={admin.id})")
-    else:
-        results.append("Not logged in (using secret key)")
+    results.append(f"Logged in as: {admin.username} (id={admin.id})")
     smtp_host = os.environ.get("SMTP_HOST", "")
     smtp_user = os.environ.get("SMTP_USER", "")
     smtp_pass = os.environ.get("SMTP_PASSWORD", "")
@@ -751,9 +762,19 @@ async def admin_dashboard(request: Request, db: Session = Depends(get_db)):
     if not admin or not is_admin_user(admin):
         return RedirectResponse(url="/login", status_code=303)
 
+    import json
     users = db.query(User).all()
     glossaries = db.query(Glossary).all()
     entry_count = db.query(GlossaryEntry).count()
+    # Bulk load owners to avoid N+1 queries
+    user_map = {u.id: u for u in users}
+    # Bulk load entry counts per glossary
+    from sqlalchemy import func as _func
+    glossary_entry_counts = dict(
+        db.query(GlossaryEntry.glossary_id, _func.count(GlossaryEntry.id))
+        .group_by(GlossaryEntry.glossary_id)
+        .all()
+    )
 
     html = f"""<!DOCTYPE html>
 <html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -797,17 +818,19 @@ th {{ font-weight: 600; color: var(--text-muted); }}
         langs = ""
         if u.language_config:
             try:
-                import json
                 lc = json.loads(u.language_config)
-                langs = ", ".join(lc.get("languages", []))
-            except:
+                langs = html_module.escape(", ".join(lc.get("languages", [])))
+            except Exception:
                 langs = "?"
         created = u.created_at.strftime("%d.%m.%Y") if u.created_at else "?"
+        safe_username = html_module.escape(u.username)
+        safe_email = html_module.escape(u.email or "-")
         actions = ""
         if not u.email_verified:
-            actions += f'<form method="post" action="/admin/verify-user/{u.username}" style="display:inline"><button type="submit" class="btn-sm btn-verify">Verifizieren</button></form> '
-        actions += f'<button class="btn-sm btn-verify" onclick="resetPw(\'{u.username}\')">PW Reset</button>'
-        html += f"<tr><td>{u.id}</td><td><strong>{u.username}</strong></td><td>{u.email or '-'}</td><td>{verified_badge}</td><td>{langs}</td><td>{created}</td><td>{actions}</td></tr>"
+            actions += f'<form method="post" action="/admin/verify-user/{safe_username}" style="display:inline"><button type="submit" class="btn-sm btn-verify">Verifizieren</button></form> '
+        js_username = html_module.escape(u.username, quote=True).replace("'", "\\'")
+        actions += f'<button class="btn-sm btn-verify" onclick="resetPw(\'{js_username}\')">PW Reset</button>'
+        html += f"<tr><td>{u.id}</td><td><strong>{safe_username}</strong></td><td>{safe_email}</td><td>{verified_badge}</td><td>{langs}</td><td>{created}</td><td>{actions}</td></tr>"
 
     html += """</table></div>
 
@@ -816,15 +839,17 @@ th {{ font-weight: 600; color: var(--text-muted); }}
 <table><tr><th>ID</th><th>Name</th><th>User</th><th>Einträge</th></tr>"""
 
     for g in glossaries:
-        owner = db.query(User).filter(User.id == g.user_id).first()
-        e_count = db.query(GlossaryEntry).filter(GlossaryEntry.glossary_id == g.id).count()
-        html += f"<tr><td>{g.id}</td><td>{g.name}</td><td>{owner.username if owner else '?'}</td><td>{e_count}</td></tr>"
+        owner = user_map.get(g.user_id)
+        e_count = glossary_entry_counts.get(g.id, 0)
+        safe_gname = html_module.escape(g.name)
+        safe_owner = html_module.escape(owner.username if owner else "?")
+        html += f"<tr><td>{g.id}</td><td>{safe_gname}</td><td>{safe_owner}</td><td>{e_count}</td></tr>"
 
     html += """</table></div></div>
 <script>
 function resetPw(username) {
     const newPw = prompt('Neues Passwort für ' + username + ':');
-    if (!newPw || newPw.length < 6) { alert('Passwort muss mindestens 6 Zeichen haben'); return; }
+    if (!newPw || newPw.length < 8) { alert('Passwort muss mindestens 8 Zeichen haben'); return; }
     fetch('/admin/reset-password/' + username, {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
