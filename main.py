@@ -7,7 +7,7 @@ from io import BytesIO
 from typing import Optional
 
 from fastapi import FastAPI, Request, Depends, Form, HTTPException, Query
-from fastapi.middleware.base import BaseHTTPMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
 from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
