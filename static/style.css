@@ -236,8 +236,8 @@ body {
 }
 
 .header-logo {
-    width: 85px;
-    height: 85px;
+    width: 60px;
+    height: 60px;
     object-fit: contain;
 }
 
@@ -1508,8 +1508,8 @@ body {
     }
 
     .header-logo {
-        width: 73px;
-        height: 73px;
+        width: 51px;
+        height: 51px;
     }
 
     .glossary-selector-btn {
