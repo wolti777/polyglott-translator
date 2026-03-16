@@ -512,6 +512,19 @@ async def get_user_api_keys(request: Request, db: Session = Depends(get_db)):
         except Exception:
             result[key.service] = "***"
 
+    # For admin users, fill in env-based keys for services not yet in result
+    from translator import is_admin_user, _get_admin_key
+    if is_admin_user(user):
+        for service in ["deepl", "pons", "google", "groq", "gemini"]:
+            if service not in result:
+                admin_key = _get_admin_key(service)
+                if admin_key:
+                    if len(admin_key) > 8:
+                        masked = admin_key[:3] + "***" + admin_key[-3:]
+                    else:
+                        masked = "***"
+                    result[service] = masked
+
     trial_days = get_trial_days_remaining(user)
 
     return {
