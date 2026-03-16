@@ -420,15 +420,25 @@ def translate_pons(text: str, source: str, target: str, api_key: str = None) -> 
                                 clean = re.sub(r'\s*\[or\s+[^\]]+\]', '', clean)
                                 clean = re.sub(r'\s*(dated|inf|form)\s*', ' ', clean)
                                 clean = ' '.join(clean.split())
-                                if 'sb' in clean or 'sth' in clean:
-                                    continue
+                                # German-specific placeholder filters
                                 if 'jdn' in clean or 'etw' in clean or 'dat' in clean or 'akk' in clean:
-                                    continue
-                                if clean.startswith("to ") and len(clean) > 15:
                                     continue
                                 if clean.startswith("sich "):
                                     continue
-                                if clean and clean.lower() not in seen and len(clean) < 25:
+                                # English target: "sb"/"sth" are PONS placeholders (e.g. "to tell sb")
+                                # For other targets: filter broader "sb"/"sth" matches
+                                if tgt != 'en':
+                                    if 'sb' in clean or 'sth' in clean:
+                                        continue
+                                else:
+                                    # Only filter exact placeholder patterns in English
+                                    if re.search(r'\bsb\b|\bsth\b', clean):
+                                        continue
+                                # "to X" phrases: valid in English, skip only for non-English targets
+                                if tgt != 'en' and clean.startswith("to ") and len(clean) > 15:
+                                    continue
+                                max_len = 40 if tgt == 'en' else 25
+                                if clean and clean.lower() not in seen and len(clean) < max_len:
                                     seen.add(clean.lower())
                                     all_translations.append(clean)
 
